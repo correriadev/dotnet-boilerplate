@@ -1,0 +1,452 @@
+<mxfile host="65bd71144e" compressed="false">
+    <diagram id="page-1" name="01 • Contexto e tese arquitetural">
+        <mxGraphModel dx="2850" dy="3464" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;01 • Contexto e tese arquitetural&lt;/b&gt;&lt;br&gt;&lt;br&gt;Plataforma Pix • TO BE • Material para banca • Baseline documental: 04/10/2026. Comece pela pergunta: como aceitar rápido sem perder a segurança de um efeito financeiro externo?" vertex="1">
+                    <mxGeometry height="165" width="1520" x="40" y="-40" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Problema de negócio&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cliente precisa de aceite durável, acompanhamento e conclusão. Rede e processos falham; pedidos e mensagens podem repetir. Aceitar uma solicitação não comprova liquidação." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Tese do desenho&lt;/b&gt;&lt;br&gt;&lt;br&gt;Separar aceite HTTP de execução bancária; preservar identidade, ordem por conta e evidência. Banco protege invariantes locais; reconciliação resolve a fronteira externa." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;O que 202 significa&lt;/b&gt;&lt;br&gt;&lt;br&gt;Somente após commit: pedido registrado e recuperável. Resultado financeiro chega depois. Compatibilidade do 202, códigos e payloads depende do contrato legado homologado." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Processamento Pix • autoridade local&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pedido, aceite, idempotência, execução e coordenação da conta. Conector e reconciliação são processos do mesmo contexto; não são autoridades financeiras concorrentes." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Contextos de apoio&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cobrança possui QR/geração; Entrega de callbacks possui tentativas; Consulta financeira possui projeção/cache. Fronteira de domínio não exige um microsserviço por contexto." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Autoridade financeira externa&lt;/b&gt;&lt;br&gt;&lt;br&gt;Outbank integra eBank/LI/GI via ACL. Fonte de saldo, reserva, liquidação e evidência deve ser homologada; não presumir que todos esses papéis pertencem ao mesmo sistema." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Consistência escolhida&lt;/b&gt;&lt;br&gt;&lt;br&gt;ACID dentro da transação local. Consistência eventual entre contextos e na notificação. Entrega at-least-once: duplicatas são esperadas e tratadas por identidade/estado." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Trade-off para a banca&lt;/b&gt;&lt;br&gt;&lt;br&gt;Mais registros, estados e operação de recuperação em troca de rastreabilidade. Conta incerta bloqueia dependentes: segurança financeira reduz disponibilidade dessa conta." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Critério de sucesso&lt;/b&gt;&lt;br&gt;&lt;br&gt;Recuperar após crash sem perder aceite/conclusão nem reenviar cegamente. Demonstrar ordem, deduplicação e transições com falhas reais; P99 de entrada &amp;lt;300 ms é meta sob perfil acordado." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="700" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-2" name="02 • Mapa operacional de componentes">
+        <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;02 • Mapa operacional de componentes&lt;/b&gt;&lt;br&gt;&lt;br&gt;Visão de destino • Setas = chamadas ou mensagens rotuladas. Persistência é propriedade do contexto; banco físico compartilhado não autoriza escrita cruzada." vertex="1">
+                    <mxGeometry height="160" width="1520" x="-80" y="-60" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="50" y="1620" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Clientes / distribuidores&lt;/b&gt;&lt;br&gt;&lt;br&gt;HTTPS • identidade • conta autorizada&lt;br&gt;Chave idempotente e contrato versionado" vertex="1">
+                    <mxGeometry height="160" width="300" x="-80" y="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Hosts HTTP .NET 8&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pix.CashOut.Api / Pix.Payment.Api&lt;br&gt;Application comum de aceite&lt;br&gt;Consulta: cache-aside" vertex="1">
+                    <mxGeometry height="160" width="480" x="420" y="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;PostgreSQL • Processamento&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pedido + idempotência + coordenação&lt;br&gt;processed_ids + Outbox + pendências&lt;br&gt;Transações curtas; autoridade local" vertex="1">
+                    <mxGeometry height="180" width="520" x="1020" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Outbox Relay&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lotes/paginação • lease recuperável&lt;br&gt;Publica fora da TX; marca com CAS&lt;br&gt;Mesmo evento mantém identidade" vertex="1">
+                    <mxGeometry height="160" width="520" x="1010" y="760" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Azure Service Bus • destino&lt;/b&gt;&lt;br&gt;&lt;br&gt;Fila financeira comum com Sessions&lt;br&gt;SessionId = ContaId • MessageId estável&lt;br&gt;Conclusão em tópico/subscriptions&lt;br&gt;Dedup temporária + DLQ" vertex="1">
+                    <mxGeometry height="200" width="480" x="290" y="740" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Outbank.Connector&lt;/b&gt;&lt;br&gt;&lt;br&gt;Valida sequência no banco&lt;br&gt;Adquire execução; registra intenção&lt;br&gt;ACL traduz contrato externo" vertex="1">
+                    <mxGeometry height="210" width="300" x="-100" y="510" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Outbank / origem homologada&lt;/b&gt;&lt;br&gt;&lt;br&gt;Envio e consulta de evidência&lt;br&gt;HTTP/protocolo fora da transação&lt;br&gt;Timeout pode esconder execução" vertex="1">
+                    <mxGeometry height="180" width="300" x="-100" y="1170" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Consumidores de conclusão&lt;/b&gt;&lt;br&gt;&lt;br&gt;Webhook.Dispatcher → receptor HTTPS&lt;br&gt;Consulta → invalidação de cache&lt;br&gt;Cobrança: solicitação/resultado com Inbox + Outbox próprios" vertex="1">
+                    <mxGeometry height="190" width="480" x="290" y="1070" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Reconciliação + scheduler&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pix.Reconciliation.Worker&lt;br&gt;Resolve incerteza por evidência&lt;br&gt;Retoma pendência READY elegível&lt;br&gt;Usa o mesmo protocolo de estados" vertex="1">
+                    <mxGeometry height="190" width="520" x="1050" y="1370" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n4" value="HTTP">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="TX-01">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" edge="1" parent="1" source="n5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n6" value="lote pendente">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1380" y="450"/>
+                            <mxPoint x="1380" y="450"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e15" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n7" value="publicação">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n8" value="comando / sessão">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n9" value="ACL">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="-20" y="950"/>
+                            <mxPoint x="-20" y="950"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e18" edge="1" parent="1" source="n8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="TX-02 / TX-03">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e19" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n10" value="eventos">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e20" edge="1" parent="1" source="n11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="CAS / pendências">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="1670" y="1465"/>
+                            <mxPoint x="1670" y="250"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e21" edge="1" parent="1" source="n11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n9" value="consulta de resultado">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-3" name="03 • Fluxo financeiro e limites de atomicidade">
+        <mxGraphModel dx="2375" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;03 • Fluxo financeiro e limites de atomicidade&lt;/b&gt;&lt;br&gt;&lt;br&gt;Leia da esquerda para a direita em cada linha. Nenhuma transação de banco envolve a chamada Outbank ou a publicação no broker." vertex="1">
+                    <mxGeometry height="100" width="1520" x="40" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;1 • Autorizar e validar&lt;/b&gt;&lt;br&gt;&lt;br&gt;Autenticar antes de replay. Autorizar cliente/conta/ação; validar contrato; produzir chave, fingerprint e identidade estável." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;2 • Replay antes da admissão&lt;/b&gt;&lt;br&gt;&lt;br&gt;Banco encontra chave + fingerprint? Reutilizar aceite original. Payload diferente: conflito. Novo pedido passa pela janela Redis; outage impede nova admissão." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;3 • TX-01 • aceite durável&lt;/b&gt;&lt;br&gt;&lt;br&gt;Mesma TX: idempotência + resposta + Pedido + sequência financeira + Outbox. Lock curto da coordenação; UNIQUE protege disputa. Responder somente após commit." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;4 • Relay → broker&lt;/b&gt;&lt;br&gt;&lt;br&gt;Adquirir lote com lease; enviar envelope; aguardar confirmação; marcar publicado por CAS. Crash depois do envio republica o mesmo evento." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;5 • TX-02 • receber / coordenar&lt;/b&gt;&lt;br&gt;&lt;br&gt;Deduplicar mensagem e verificar próxima sequência. Lacuna/conta bloqueada: persistir comando pendente antes de Complete. Scheduler recupera sem depender de reentrega." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;6 • Intenção → Outbank&lt;/b&gt;&lt;br&gt;&lt;br&gt;Adquirir EndToEndId/ownership; persistir intenção antes do envio. Chamar ACL fora da TX. Lease expirado após intenção não autoriza novo envio automático." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;7 • TX-03 • consolidar&lt;/b&gt;&lt;br&gt;&lt;br&gt;Evidência + Pedido + processed_ids + coordenação + Outbox terminal atomicamente. CAS recusa escritor vencido. Resultado incerto bloqueia dependentes." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;8 • Conclusão e callback&lt;/b&gt;&lt;br&gt;&lt;br&gt;Publicar conclusão durável. Inbox + entrega antes de confirmar consumo; HTTP fora da TX. Callback pode repetir com a mesma identidade; não altera resultado financeiro." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;9 • Recuperar e retomar&lt;/b&gt;&lt;br&gt;&lt;br&gt;Reconciliação consulta origem homologada. Evidência conclusiva usa TX-03; insuficiente mantém triagem/bloqueio. Resolver impedimento libera próxima sequência elegível." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n4" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e14" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n7" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e15" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n8" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e16" edge="1" parent="1" source="n9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n10" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e17" edge="1" parent="1" source="n10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n11" value="depois">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-4" name="04 • Estados, incerteza e continuidade por conta">
+        <mxGraphModel dx="2375" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;04 • Estados, incerteza e continuidade por conta&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pedido financeiro • Transições resumidas da especificação tática. Rejeição definitiva exige evidência, não um erro de rede. Abaixo, Conta e Entrega possuem ciclos independentes." vertex="1">
+                    <mxGeometry height="100" width="1520" x="40" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Aceito&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pedido durável&lt;br&gt;Sequência atribuída" vertex="1">
+                    <mxGeometry height="140" width="250" x="40" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Em processamento&lt;/b&gt;&lt;br&gt;&lt;br&gt;Sequência elegível + lease&lt;br&gt;Intenção antes do envio" vertex="1">
+                    <mxGeometry height="140" width="330" x="390" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Confirmado / Rejeitado definitivo&lt;/b&gt;&lt;br&gt;&lt;br&gt;Evidência conclusiva + TX-03&lt;br&gt;Replay conserva resultado terminal" vertex="1">
+                    <mxGeometry height="140" width="530" x="1010" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Resultado incerto&lt;/b&gt;&lt;br&gt;&lt;br&gt;Possível efeito externo sem conclusão&lt;br&gt;Bloquear comandos dependentes" vertex="1">
+                    <mxGeometry height="160" width="330" x="390" y="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Em triagem&lt;/b&gt;&lt;br&gt;&lt;br&gt;Evidência insuficiente&lt;br&gt;Decisão autorizada e auditada&lt;br&gt;Bloqueio preservado" vertex="1">
+                    <mxGeometry height="160" width="530" x="1010" y="460" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n4" value="adquirir">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="evidência">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n6" value="timeout / crash pós-intenção">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n7" value="sem prova suficiente">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e12" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="reconciliação">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e13" edge="1" parent="1" source="n7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="prova + decisão auditada">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n14" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Exceções controladas&lt;/b&gt;&lt;br&gt;&lt;br&gt;Antes da intenção e sem possibilidade de execução: retorno a Aceito com mesma identidade. De Incerto/Triagem a processamento: somente prova homologada de não execução ou deduplicação externa comprovada. “Não encontrado” isolado não basta." vertex="1">
+                    <mxGeometry height="250" width="730" x="40" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n15" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Coordenação da Conta + entrega&lt;/b&gt;&lt;br&gt;&lt;br&gt;Conta: Livre → Bloqueada → Livre. DLQ/lacuna/incerteza impede a próxima sequência; expiração não pula operação.&lt;br&gt;Entrega: Pendente → Em envio → Aceita / Aguardando retry / Esgotada. Falha no webhook não desfaz o Pix." vertex="1">
+                    <mxGeometry height="250" width="730" x="810" y="700" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-5" name="05 • Hexagonal, Clean e Vertical Slices">
+        <mxGraphModel dx="2375" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;05 • Hexagonal, Clean e Vertical Slices&lt;/b&gt;&lt;br&gt;&lt;br&gt;Setas nesta página = dependências de código, não fluxo de rede. Inversão de dependência permite substituir adaptadores sem levar SDKs e banco para as regras de negócio." vertex="1">
+                    <mxGeometry height="100" width="1520" x="40" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Hosts • composition root&lt;/b&gt;&lt;br&gt;&lt;br&gt;API / Connector / Workers&lt;br&gt;Registram DI, configuração e transporte&lt;br&gt;Delegam para casos de uso" vertex="1">
+                    <mxGeometry height="210" width="390" x="40" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Application • slices&lt;/b&gt;&lt;br&gt;&lt;br&gt;AcceptRequest / ExecutePayment&lt;br&gt;ReconcilePayment / ConsultBalance&lt;br&gt;Cada caso de uso possui comando, resultado e portas necessárias" vertex="1">
+                    <mxGeometry height="210" width="450" x="570" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Domain • invariantes&lt;/b&gt;&lt;br&gt;&lt;br&gt;PedidoPix / CoordenacaoConta&lt;br&gt;Money / ContaId / EndToEndId&lt;br&gt;Estados e regras puras; sem DbContext, HTTP ou SDK de broker" vertex="1">
+                    <mxGeometry height="210" width="390" x="1150" y="190" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Infrastructure • adaptadores&lt;/b&gt;&lt;br&gt;&lt;br&gt;EF Core/Npgsql • Redis • Service Bus&lt;br&gt;ACL Outbank • transporte de callback&lt;br&gt;Implementa portas definidas na Application" vertex="1">
+                    <mxGeometry height="210" width="450" x="570" y="540" as="geometry"/>
+                </mxCell>
+                <mxCell id="e7" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n4" value="chama">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e8" edge="1" parent="1" source="n4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="referencia">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e9" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n4" value="implementa portas">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e10" edge="1" parent="1" source="n6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n5" value="mapeia modelos">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e11" edge="1" parent="1" source="n3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;fontSize=16;labelBackgroundColor=#ffffff;" target="n6" value="compõe DI">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="n12" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Como os conceitos se combinam&lt;/b&gt;&lt;br&gt;&lt;br&gt;Hexagonal: portas isolam entrada/saída. Clean: referências apontam para políticas internas. Vertical Slice: organiza funcionalidades dentro de Application, sem criar uma assembly por caso de uso. Esses estilos se complementam." vertex="1">
+                    <mxGeometry height="150" width="730" x="40" y="800" as="geometry"/>
+                </mxCell>
+                <mxCell id="n13" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Exemplo e custo&lt;/b&gt;&lt;br&gt;&lt;br&gt;ExecutePaymentUseCase recebe IExecutionStore e IOutbankAcl. Store concentra operações transacionais; ACL traduz evidência externa. Mais contratos/mapeamentos exigem disciplina; Domain não assume regras bancárias ausentes do contrato." vertex="1">
+                    <mxGeometry height="150" width="730" x="810" y="800" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-6" name="06 • Garantias e limites dos padrões">
+        <mxGraphModel dx="2375" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;06 • Garantias e limites dos padrões&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cada mecanismo cobre uma falha diferente. Duplicatas de transporte são toleradas; execução externa exatamente uma vez depende também do contrato e da evidência externa." vertex="1">
+                    <mxGeometry height="100" width="1520" x="40" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Outbox • problema da gravação dupla&lt;/b&gt;&lt;br&gt;&lt;br&gt;Sem Outbox: commit do pedido pode ocorrer e envio falhar. Com Outbox: pedido + evento juntos; relay tenta depois. Não torna banco e broker uma transação distribuída." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Inbox / UNIQUE • consumidor&lt;/b&gt;&lt;br&gt;&lt;br&gt;Identidade durável impede reaplicar evento equivalente. Persistir pendência/entrega antes de Complete. Retenção precisa cobrir horizonte de replay; dedup do broker é temporária." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Idempotência • três identidades&lt;/b&gt;&lt;br&gt;&lt;br&gt;HTTP: chave + fingerprint. Mensagem: EventId/MessageId determinístico por tipo/versão/ordinal. Financeiro: EndToEndId estável e UNIQUE. Não substituir um identificador pelo outro." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Sessions + sequência relacional&lt;/b&gt;&lt;br&gt;&lt;br&gt;SessionId = ContaId organiza consumo. Reenvio tardio, DLQ e lacunas ainda exigem próxima sequência persistida. Mesma sessão em filas diferentes não cria ordem global." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Lease + fencing por CAS&lt;/b&gt;&lt;br&gt;&lt;br&gt;Owner identifica executor; generation distingue tomadas; expires_at limita validade; version detecta concorrência. UPDATE condicional deve verificar tudo atomicamente. Lock de sessão não substitui lease local." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Limite do fencing&lt;/b&gt;&lt;br&gt;&lt;br&gt;Escritor vencido não consolida localmente, mas uma chamada remota já iniciada pode terminar. Proteção local não cancela a rede. Identidade e reconciliação tratam esse intervalo." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;ACL • linguagem protegida&lt;/b&gt;&lt;br&gt;&lt;br&gt;Anti-Corruption Layer converte eBank/LI/GI em evidência e resultados internos. Mantém schema externo fora do Domain. Timeout é incerteza, não “rejeitado”." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Retry / DLQ • orçamentos distintos&lt;/b&gt;&lt;br&gt;&lt;br&gt;HTTP/SDK têm deadlines e tentativas próprias; DLQ conta reentregas do broker. Não aplicar retry/hedging cego a efeito financeiro incerto. DLQ exige triagem, não liberação da conta." vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Cache-aside + geração&lt;/b&gt;&lt;br&gt;&lt;br&gt;Consultar cache; em miss buscar origem; preencher só se geração não mudou. Invalidação incrementa geração + remove. TTL limita validade. Saldo em cache serve leitura, nunca autoriza débito." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="700" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-7" name="07 • Cobrança, callback e consulta">
+        <mxGraphModel dx="1500" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" value="&lt;b&gt;07 • Cobrança, callback e consulta&lt;/b&gt;&lt;br&gt;&lt;br&gt;Três fluxos auxiliares com donos e transações locais próprios. Consistência eventual não transfere autoridade financeira para projeções ou notificações." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="25" width="1520" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="1000" width="1520" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" value="&lt;b&gt;Cobrança • aceite&lt;/b&gt;&lt;br&gt;&lt;br&gt;Payment.Api usa Application de Processamento. QR puro registra Pedido + idempotência + Outbox sem sequência financeira; não cria débito implícito." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" value="&lt;b&gt;Cobrança • geração&lt;/b&gt;&lt;br&gt;&lt;br&gt;Inbox + agregado Cobrança + job durável (TX-04). Geração externa é condicional ao contrato. Resultado/artefato + Outbox; nada depende só de tarefa em memória." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" value="&lt;b&gt;Cobrança • retorno&lt;/b&gt;&lt;br&gt;&lt;br&gt;Processamento incorpora resultado em sua própria TX: Inbox + Pedido + Outbox de conclusão. Equivalente é replay; terminal incompatível vai à triagem. Sem cross-write/commit distribuído." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" value="&lt;b&gt;Callback • agendamento&lt;/b&gt;&lt;br&gt;&lt;br&gt;Conclusão terminal gera Inbox + Entrega UNIQUE por evento/destinatário antes do Complete (TX-05). Destinatário por cadastro, nunca URL arbitrária do evento." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" value="&lt;b&gt;Callback • transporte seguro&lt;/b&gt;&lt;br&gt;&lt;br&gt;HTTPS; resolver e validar IP no envio; negar redes privadas/metadados e IPv4-mapped; socket fixado ao IP validado; redirects controlados; autenticação externa ao payload." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" value="&lt;b&gt;Callback • resultado&lt;/b&gt;&lt;br&gt;&lt;br&gt;Persistir tentativa, prazo/backoff e aceite/esgotamento. Crash após receptor aceitar pode repetir: conservar EntregaId e contrato de dedup. Notificação falha não redefine Pix." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" value="&lt;b&gt;Consulta • fonte de verdade&lt;/b&gt;&lt;br&gt;&lt;br&gt;Leitura autorizada por cliente/conta. Snapshot informa origem/validade; origem externa é autoridade de saldo/limites. Nenhuma reserva financeira inferida de cache." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" value="&lt;b&gt;Consulta • invalidação&lt;/b&gt;&lt;br&gt;&lt;br&gt;Conclusão publica evento para invalidar projeção. Geração CAS recusa preenchimento iniciado antes da invalidação. Eventos atrasados e TTL são partes do modelo eventual." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" value="&lt;b&gt;Fronteiras de responsabilidade&lt;/b&gt;&lt;br&gt;&lt;br&gt;Processamento não escreve Cobrança/Entrega; consumidores não sobrescrevem Pedido. Comunicação por DTOs versionados. Consulta pode permanecer módulo de leitura se BC separado não se justificar." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-8" name="08 • Azure TO BE, segurança e operação">
+        <mxGraphModel dx="1500" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" value="&lt;b&gt;08 • Azure TO BE, segurança e operação&lt;/b&gt;&lt;br&gt;&lt;br&gt;Infraestrutura proposta em docs/adr/CONTAINER-APPS.md (F002). Não representa recursos provisionados. Valores de escala/SKU são hipóteses sujeitas a custo, região e homologação." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="25" width="1520" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="1000" width="1520" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" value="&lt;b&gt;Azure Container Apps&lt;/b&gt;&lt;br&gt;&lt;br&gt;Cinco hosts: duas APIs + três workers. APIs com ingress/TLS; workers sem ingress público. Relay é processo BackgroundService a ser alocado no host responsável pela publicação." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" value="&lt;b&gt;Dados e mensageria&lt;/b&gt;&lt;br&gt;&lt;br&gt;PostgreSQL gerenciado com backup/PITR; Redis gerenciado compatível; Service Bus Premium proposto. Isolar ambientes, rede e permissões; validar migrations e restauração." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" value="&lt;b&gt;Imagem e identidade&lt;/b&gt;&lt;br&gt;&lt;br&gt;ACR; mesma imagem/digest promovido. Managed Identity por responsabilidade; Key Vault para segredos; roles de sender/receiver/pull sob menor privilégio. Runner precisa acesso de rede." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="160" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" value="&lt;b&gt;Escala e limites&lt;/b&gt;&lt;br&gt;&lt;br&gt;KEDA via regras ACA para consumidor real do Service Bus. Loops que consultam banco não escalam só por fila. Limitar por sessões ativas, conexões DB e capacidade Outbank." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" value="&lt;b&gt;Probes e degradação&lt;/b&gt;&lt;br&gt;&lt;br&gt;Liveness: processo ativo. Readiness: capacidade da função. Banco/identidade permitem replay; Redis indisponível degrada admissão nova. Workers avaliam suas dependências reais." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" value="&lt;b&gt;Observabilidade&lt;/b&gt;&lt;br&gt;&lt;br&gt;Propagar trace W3C/OpenTelemetry entre API, relay, consumo e conclusão. Correlacionar request_code/EndToEndId sem payload sensível; IDs individuais não viram labels de métricas." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="430" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" value="&lt;b&gt;Indicadores operacionais&lt;/b&gt;&lt;br&gt;&lt;br&gt;Idade/backlog Outbox; pendências por conta; quantidade/idade de incertezas; DLQ; callback esgotado; latência/P99 do aceite. Definir alertas, responsáveis e runbooks de triagem." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="40" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" value="&lt;b&gt;Deploy e recuperação&lt;/b&gt;&lt;br&gt;&lt;br&gt;Migrations coordenadas; drenar processamento; testar sobreposição de réplicas. Peso HTTP não faz canário de fila. Backups exigem ensaio de restore e RPO/RTO acordados." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="555" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" value="&lt;b&gt;Segurança transversal&lt;/b&gt;&lt;br&gt;&lt;br&gt;Autorizar conta em toda entrada/replay/consulta; TLS e acesso restrito aos dados; destinos cadastrados/egress controlado; retenção/auditoria homologadas; logs sem credenciais." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" vertex="1" parent="1">
+                    <mxGeometry x="1070" y="700" width="490" height="240" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="page-9" name="09 • Roteiro da banca e evidência necessária">
+        <mxGraphModel dx="2375" dy="1092" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1100" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="n1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=24;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;09 • Roteiro da banca e evidência necessária&lt;/b&gt;&lt;br&gt;&lt;br&gt;Use as páginas 1–2 para orientar, 3–4 para demonstrar comportamento, 5–7 para justificar conceitos e 8–9 para discutir viabilidade. Não inferir homologação a partir de diagramas ou mocks." vertex="1">
+                    <mxGeometry height="100" width="1520" x="40" y="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="n2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;LEGENDA / ESCOPO&lt;/b&gt;&lt;br&gt;&lt;br&gt;Azul: aplicação/domínio • Verde: persistência • Roxo: mensagens • Amarelo: condições e riscos • Cinza: externo/contexto. Setas indicam fluxo operacional; página 5 indica dependências de código. TO BE = desenho de destino, sem certificação de implementação ou produção." vertex="1">
+                    <mxGeometry height="75" width="1520" x="40" y="1000" as="geometry"/>
+                </mxCell>
+                <mxCell id="n3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Demonstração 1 • concorrência&lt;/b&gt;&lt;br&gt;&lt;br&gt;Dois POSTs, mesma chave/fingerprint: um Pedido/Outbox e mesmo aceite. Payload distinto é conflito. Redis fora: replay autorizado recupera banco; novo pedido não é admitido. [AC-01/02]" vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Demonstração 2 • crash no relay&lt;/b&gt;&lt;br&gt;&lt;br&gt;Publicar e cair antes de marcar. Retomar com nova generation e republicar mesma identidade. Consumidor evita novo efeito. Writer antigo falha no CAS do banco. [AC-03/05]" vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Demonstração 3 • timeout bancário&lt;/b&gt;&lt;br&gt;&lt;br&gt;Outbank executa e resposta some. Estado incerto bloqueia dependentes; job consulta evidência; consolida por TX-03. Contar chamadas externas: não há reenvio cego. [AC-04]" vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="n6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Demonstração 4 • ordem / DLQ&lt;/b&gt;&lt;br&gt;&lt;br&gt;Comando N em DLQ/lacuna/incerto; N+1 permanece durável e pendente. Decisão auditada resolve N; scheduler retoma próximo elegível sem pular sequência. [AC-06]" vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n7" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Demonstração 5 • conclusão&lt;/b&gt;&lt;br&gt;&lt;br&gt;Crash após TX-03: Outbox recupera evento. Dispatcher preserva entrega e identidade; callback pode repetir. Cache obsoleto não concede autorização financeira. [AC-07/08]" vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n8" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Homologação ainda exigida&lt;/b&gt;&lt;br&gt;&lt;br&gt;Contratos eBank/LI/GI, fonte financeira, identidade canônica, semântica de não execução, webhook/dedup, retenção, SLO/RPO/RTO e política de continuidade precisam de evidência aprovada." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="430" as="geometry"/>
+                </mxCell>
+                <mxCell id="n9" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Perfil e ambiente reais&lt;/b&gt;&lt;br&gt;&lt;br&gt;Validar Sessions/dedup/DLQ no Azure e concorrência/CAS no PostgreSQL real. Carga registra volume, janela, contas, concorrência e recursos. Meta P99 &amp;lt;300 ms aplica ao aceite, não à liquidação." vertex="1">
+                    <mxGeometry height="240" width="490" x="40" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n10" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Fontes primárias do desenho&lt;/b&gt;&lt;br&gt;&lt;br&gt;docs/specs/PRD.md&lt;br&gt;docs/specs/plataforma_pix/002-context-map.md&lt;br&gt;docs/specs/plataforma_pix/003-azure-cloud-estudos-tactical-design.md&lt;br&gt;Runtime: docs/adr/CONTAINER-APPS.md" vertex="1">
+                    <mxGeometry height="240" width="490" x="555" y="700" as="geometry"/>
+                </mxCell>
+                <mxCell id="n11" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=18;align=left;verticalAlign=top;spacing=16;overflow=hidden;" value="&lt;b&gt;Limite da representação&lt;/b&gt;&lt;br&gt;&lt;br&gt;Diagrama sintetiza especificações TO BE. Nomes dos projetos ancorados em docs/feature/plataforma_pix.md e ADR de arquitetura; dependência exemplar inspecionada em ExecutePaymentUseCase/.csproj. Não é nova auditoria do gittree." vertex="1">
+                    <mxGeometry height="240" width="490" x="1070" y="700" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

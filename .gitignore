@@ -1,0 +1,74 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+tp/
+*.user
+*.suo
+*.userprefs
+*.pidb
+*.booproj
+*.sln.docstates
+*.vsidx
+*.binlog
+
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sln.iml
+*.DotSettings.user
+launchSettings.json
+appsettings.*.json
+
+# NuGet
+*.nupkg
+*.snupkg
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nuget.props
+*.nuget.targets
+packages/
+
+# Test results
+[Tt]est[Rr]esult*/
+TestResults/
+*.trx
+*.coverage
+coveragexml
+coverage*.xml
+coverage*.json
+coverage*.info
+
+# Azure
+*.publishsettings
+azureFunctions/
+App_Data/
+*.pubxml
+*.Azure/
+
+# Docker / compose
+docker-compose.override.yml
+
+# Publish / profiles
+publish/
+*.pubxml.user
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.pfx
+*.key
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
