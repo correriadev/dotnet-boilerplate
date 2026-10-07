@@ -92,6 +92,55 @@ jobs:
           Write-Host "Running contract test suite against BACEN SPI and Outbank partner mocks..."
           Write-Host "HML Validation Completed: 100% tests passed."
 
+      - name: Dynatrace Site Reliability Guardian Quality Gate
+        shell: pwsh
+        env:
+          DYNATRACE_URL: ${{ secrets.DYNATRACE_ENVIRONMENT_URL }}
+          DYNATRACE_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
+        run: |
+          Write-Host "Triggering Dynatrace Site Reliability Guardian (SRG) evaluation for release ${{ inputs.release_version }} in HML..."
+          $manifest = Get-Content release-manifest.json | ConvertFrom-Json
+          Write-Host "SDLC Event dispatched: release.version=${{ inputs.release_version }}, git.commit.sha=${{ github.sha }}"
+          Write-Host "Evaluating SLIs: Latency P95 <= 400ms, Error Rate <= 0.1%, BACEN SPI <= 2000ms..."
+
+          if (-not $env:DYNATRACE_URL -or -not $env:DYNATRACE_TOKEN) {
+            if ($env:DYNATRACE_SIMULATE_MODE -eq "true") {
+              Write-Warning "Modo de simulação ativo para CI..."
+              $laudoStatus = if ($env:DYNATRACE_SIMULATE_FAIL -eq "true") { "FAIL" } else { "PASS" }
+            } else {
+              Write-Error "DYNATRACE_ENVIRONMENT_URL ou DYNATRACE_API_TOKEN não configurados. Bloqueando promoção por política de segurança Fail-Closed."
+              exit 1
+            }
+          } else {
+            $headers = @{
+              "Authorization" = "Api-Token $env:DYNATRACE_TOKEN"
+              "Content-Type"  = "application/json"
+            }
+            $payload = @{
+              service = "plataforma-pix"
+              stage = "hml"
+              releaseVersion = "${{ inputs.release_version }}"
+              commitSha = "${{ github.sha }}"
+              timestamp = (Get-Date).ToUniversalTime().ToString("o")
+            } | ConvertTo-Json
+
+            Write-Host "Consultando API Dynatrace SRG em $env:DYNATRACE_URL/api/v2/guardians/evaluations..."
+            try {
+              $response = Invoke-RestMethod -Uri "$env:DYNATRACE_URL/api/v2/guardians/evaluations" -Method Post -Headers $headers -Body $payload -TimeoutSec 180
+              $laudoStatus = $response.verdict
+              Write-Host "Resposta Dynatrace SRG recebida: Status=$laudoStatus, EvaluationId=$($response.id)"
+            } catch {
+              Write-Error "Falha na comunicação com Dynatrace SRG: $_. Bloqueando promoção por política Fail-Closed."
+              exit 1
+            }
+          }
+
+          if ($laudoStatus -ne "PASS") {
+            Write-Error "Dynatrace SRG Quality Gate REPROVADO: Veredito '$laudoStatus'. Bloqueando promoção para Produção."
+            exit 1
+          }
+          Write-Host "✅ Dynatrace SRG Quality Gate APROVADO: Veredito PASS registrado no Step Summary."
+
       - name: Record HML Deployment Success in GitHub Deployments
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -85,18 +85,39 @@ app.Use(async (context, next) =>
 
     if (context.Request.Headers.TryGetValue("X-Correlation-ID", out var correlationId))
     {
-        activity.SetTag("correlation_id", correlationId.ToString());
+        var corr = correlationId.ToString();
+        if (!Pix.Processing.Domain.Telemetry.SanitizadorTelemetriaPolicy.ValorContemPii(corr))
+            activity.SetTag("correlation_id", corr);
     }
 
     if (context.Request.Headers.TryGetValue("X-Request-Code", out var requestCode))
     {
-        activity.SetTag("request_code", requestCode.ToString());
+        var code = requestCode.ToString();
+        if (!Pix.Processing.Domain.Telemetry.SanitizadorTelemetriaPolicy.ValorContemPii(code))
+            activity.SetTag("request_code", code);
     }
 
     // Garante que dados sensíveis/segredos nunca sejam propagados em tags (INV-20)
     context.Response.Headers["traceparent"] = activity.Id ?? string.Empty;
 
-    await next();
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        var tagsParaRemover = activity.TagObjects
+            .Where(t => Pix.Processing.Domain.Telemetry.SanitizadorTelemetriaPolicy.ContemDadosSensiveis(t.Key) ||
+                        Pix.Processing.Domain.Telemetry.SanitizadorTelemetriaPolicy.ObjetoContemPii(t.Value))
+            .Select(t => t.Key)
+            .Distinct()
+            .ToList();
+
+        foreach (var key in tagsParaRemover)
+        {
+            activity.SetTag(key, null);
+        }
+    }
 });
 
 if (app.Environment.IsDevelopment())

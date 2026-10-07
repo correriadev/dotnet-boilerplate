@@ -151,7 +151,9 @@ public class AcceptanceStore : IAcceptanceStore
                     CorrelationId = pedido.Id.ToString(),
                     PayloadJson = outboxPayload,
                     Status = "PENDING",
-                    OccurredAt = DateTimeOffset.UtcNow
+                    OccurredAt = DateTimeOffset.UtcNow,
+                    TraceParent = System.Diagnostics.Activity.Current?.Id,
+                    TraceState = System.Diagnostics.Activity.Current?.TraceStateString
                 });
 
                 // Commit atômico conjunto (INV-03, TX-01)

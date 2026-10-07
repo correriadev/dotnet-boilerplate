@@ -13,4 +13,6 @@ public class MensagemOutbox
     public DateTimeOffset? PublishedAt { get; set; }
     public string? LockOwner { get; set; }
     public DateTimeOffset? LockedUntil { get; set; }
+    public string? TraceParent { get; init; }
+    public string? TraceState { get; init; }
 }

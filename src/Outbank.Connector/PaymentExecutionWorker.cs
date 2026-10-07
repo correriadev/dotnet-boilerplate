@@ -31,6 +31,17 @@ public class PaymentExecutionWorker : BackgroundService
 
     public async Task ProcessSessionMessageInternalAsync(ProcessSessionMessageEventArgs args, CancellationToken ct)
     {
+        using var activity = new System.Diagnostics.Activity("PaymentExecutionWorker.ProcessSessionMessage");
+        if (args.Message.ApplicationProperties.TryGetValue("traceparent", out var tp) && tp is string traceParent)
+        {
+            activity.SetParentId(traceParent);
+        }
+        if (args.Message.ApplicationProperties.TryGetValue("tracestate", out var ts) && ts is string traceState)
+        {
+            activity.TraceStateString = traceState;
+        }
+        activity.Start();
+
         var accountId = args.SessionId;
         _logger.LogInformation("Processando mensagem {MessageId} na sessão da conta {AccountId}...", args.Message.MessageId, accountId);
 

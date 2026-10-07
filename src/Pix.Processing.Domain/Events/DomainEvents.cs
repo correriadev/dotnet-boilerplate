@@ -128,5 +128,7 @@ public record OutboxEnvelopeEvento(
     DateTimeOffset OccurredAt,
     string CorrelationId,
     string PayloadJson,
-    ContaId? ContaId = null)
+    ContaId? ContaId = null,
+    string? TraceParent = null,
+    string? TraceState = null)
     : DominioEvento(EventId, Tipo, SchemaVersion, OccurredAt, CorrelationId);

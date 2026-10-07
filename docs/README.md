@@ -6,24 +6,19 @@ Index of project technical documentation for **Modernização da Plataforma Pix*
 
 | Document | Description | Reading |
 |----------|-------------|----------|
-| [**ARCHITECTURE.md**](./adr/ARCHITECTURE.md) | Hexagonal architecture, persistence, outbox, and messaging patterns. | **Mandatory** |
-| [**TESTS.md**](./adr/TESTS.md) | Testing strategies, patterns, and execution commands. | **Mandatory** |
+| [**.digest.md**](./.digest.md) | Fast-path machine-readable orientation digest (stack, test commands, rules). | **Mandatory** |
+| [**.graph.json**](./.graph.json) | Macro relation graph index for agent topology navigation and 1-hop routing. | **Mandatory** |
+| [**ARCHITECTURE.md**](./adr/ARCHITECTURE.md) | Hexagonal architecture, Zero Trust network, YARP Gateway, persistence, outbox, and observability patterns. | **Mandatory** |
+| [**TESTS.md**](./adr/TESTS.md) | Testing strategies, patterns, execution commands, gateway test scenarios, and coverage thresholds. | **Mandatory** |
+| [**infra_landing_zone.md**](./feature/infra_landing_zone.md) | Landing Zone Enterprise no Azure (Bicep, VNet, NSG, Private Endpoints) e API Gateway YARP com propagação W3C/OIDC. | **Mandatory** |
 | [**plataforma_pix.md**](./feature/plataforma_pix.md) | Core Pix platform domain capabilities, contracts, rules, and execution flow. | **Mandatory** |
 | [**qa_pipeline.md**](./feature/qa_pipeline.md) | Continuous testing pyramid, quality pipeline, and perimetral auth verification. | **Mandatory** |
 | [**cicd_pipeline.md**](./feature/cicd_pipeline.md) | Esteira de CI/CD automatizada, gates manuais para Hml/Prod, proveniência Cosign e rollback determinístico. | **Mandatory** |
+| [**observabilidade_dynatrace.md**](./feature/observabilidade_dynatrace.md) | Observabilidade de produção, propagação W3C, sanitização de PII e quality gates com Dynatrace SRG e Davis AI. | **Mandatory** |
 | [**pbb_cicd_pipeline.md**](./feature/pbb_cicd_pipeline.md) | Product Backlog Building (PBB) da esteira de CI/CD e entrega contínua. | **Mandatory** |
 | [**pbb_infra_landing_zone.md**](./feature/pbb_infra_landing_zone.md) | Product Backlog Building (PBB) da infraestrutura cloud-native, borda e Landing Zone Enterprise. | **Mandatory** |
 | [**CICD.md**](./adr/CICD.md) | Proposed GitHub Actions release strategy and acceptance criteria. | Optional |
 | [**CONTAINER-APPS.md**](./adr/CONTAINER-APPS.md) | Proposed Azure runtime and scaling policy. | Optional |
-
-## Domain Specifications (DDD Specs)
-
-Especificações técnicas derivadas do refinamento de escopo (`/scope-refinement`) localizadas em `docs/specs/`:
-
-* [**001-problem-space.md**](./specs/cicd_pipeline/001-problem-space.md) — Event Storming, subdomínios e linguagem ubíqua do CI/CD.
-* [**002-context-map.md**](./specs/cicd_pipeline/002-context-map.md) — Bounded Contexts, mapa de relações e decisões arquiteturais (ADR-SR-01 a 06).
-* [**003-azure-cloud-estudos-tactical-design.md**](./specs/cicd_pipeline/003-azure-cloud-estudos-tactical-design.md) — Agregados, VOs, Domain Services e plano ordenado de tarefas.
-* [**004-azure-cloud-estudos-test-scenarios.md**](./specs/cicd_pipeline/004-azure-cloud-estudos-test-scenarios.md) — Especificações de testes em formato Given-When-Then.
 
 ## Recommended Reading Order
 

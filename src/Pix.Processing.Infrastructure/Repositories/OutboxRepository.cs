@@ -28,7 +28,9 @@ public class OutboxRepository : IOutboxRepository
                 [CriadoEm],
                 [PublishedAt],
                 [LockOwner],
-                [LockedUntil]
+                [LockedUntil],
+                [TraceParent],
+                [TraceState]
             ) VALUES (
                 @EventId,
                 @Tipo,
@@ -40,7 +42,9 @@ public class OutboxRepository : IOutboxRepository
                 @CriadoEm,
                 @PublishedAt,
                 @LockOwner,
-                @LockedUntil
+                @LockedUntil,
+                @TraceParent,
+                @TraceState
             )";
 
         var parameters = new
@@ -55,7 +59,9 @@ public class OutboxRepository : IOutboxRepository
             mensagem.CriadoEm,
             mensagem.PublishedAt,
             mensagem.LockOwner,
-            mensagem.LockedUntil
+            mensagem.LockedUntil,
+            TraceParent = mensagem.TraceParent ?? System.Diagnostics.Activity.Current?.Id,
+            TraceState = mensagem.TraceState ?? System.Diagnostics.Activity.Current?.TraceStateString
         };
 
         var command = new CommandDefinition(sql, parameters, transaction: tx, cancellationToken: ct);
@@ -76,7 +82,9 @@ public class OutboxRepository : IOutboxRepository
                 [CriadoEm],
                 [PublishedAt],
                 [LockOwner],
-                [LockedUntil]
+                [LockedUntil],
+                [TraceParent],
+                [TraceState]
             FROM [pix].[OutboxRecords] WITH (UPDLOCK, READPAST)
             WHERE [Status] = 'PENDING'
             ORDER BY [CriadoEm] ASC";
@@ -100,7 +108,9 @@ public class OutboxRepository : IOutboxRepository
                 [CriadoEm],
                 [PublishedAt],
                 [LockOwner],
-                [LockedUntil]
+                [LockedUntil],
+                [TraceParent],
+                [TraceState]
             FROM [pix].[OutboxRecords]
             WHERE [EventId] = @EventId";
 

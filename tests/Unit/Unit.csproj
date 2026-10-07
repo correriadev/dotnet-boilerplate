@@ -28,6 +28,11 @@
     <ProjectReference Include="..\..\src\Pix.Callbacks.Domain\Pix.Callbacks.Domain.csproj" />
     <ProjectReference Include="..\..\src\Pix.Callbacks.Application\Pix.Callbacks.Application.csproj" />
     <ProjectReference Include="..\..\src\Pix.Migrator\Pix.Migrator.csproj" />
+    <ProjectReference Include="..\..\src\Pix.Gateway\Pix.Gateway.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

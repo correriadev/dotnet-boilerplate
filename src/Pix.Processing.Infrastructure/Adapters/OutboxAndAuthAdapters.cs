@@ -101,6 +101,20 @@ public class AzureServiceBusPublisher : IBrokerPublisher
                 sbMessage.SessionId = sessionId;
             }
 
+            if (evento is OutboxEnvelopeEvento envEv)
+            {
+                if (!string.IsNullOrEmpty(envEv.TraceParent))
+                    sbMessage.ApplicationProperties["traceparent"] = envEv.TraceParent;
+                if (!string.IsNullOrEmpty(envEv.TraceState))
+                    sbMessage.ApplicationProperties["tracestate"] = envEv.TraceState;
+            }
+            else if (System.Diagnostics.Activity.Current != null)
+            {
+                sbMessage.ApplicationProperties["traceparent"] = System.Diagnostics.Activity.Current.Id;
+                if (!string.IsNullOrEmpty(System.Diagnostics.Activity.Current.TraceStateString))
+                    sbMessage.ApplicationProperties["tracestate"] = System.Diagnostics.Activity.Current.TraceStateString;
+            }
+
             await _sender.SendMessageAsync(sbMessage, ct);
         }
 
@@ -240,7 +254,9 @@ public class OutboxRelay : IOutboxStore
                         p.OccurredAt,
                         p.CorrelationId,
                         p.PayloadJson,
-                        contaId) { Generation = p.Generation };
+                        contaId,
+                        p.TraceParent,
+                        p.TraceState) { Generation = p.Generation };
                 }
             }
             else
@@ -252,7 +268,9 @@ public class OutboxRelay : IOutboxStore
                     p.OccurredAt,
                     p.CorrelationId,
                     p.PayloadJson,
-                    contaId) { Generation = p.Generation };
+                    contaId,
+                    p.TraceParent,
+                    p.TraceState) { Generation = p.Generation };
             }
 
             resultado.Add(eventoCriado);

@@ -262,7 +262,9 @@ public class ExecutionStore : IExecutionStore
                 CorrelationId = outboxEvento.CorrelationId,
                 PayloadJson = payload,
                 Status = "PENDING",
-                OccurredAt = outboxEvento.OccurredAt
+                OccurredAt = outboxEvento.OccurredAt,
+                TraceParent = System.Diagnostics.Activity.Current?.Id,
+                TraceState = System.Diagnostics.Activity.Current?.TraceStateString
             });
 
             await _db.SaveChangesAsync(ct);

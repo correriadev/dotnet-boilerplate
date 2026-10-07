@@ -1,112 +1,121 @@
 ---
 doc_type: adr
 domain: architecture
-stack: [.NET 8, Azure SQL Server, Dapper, DbUp, Redis, Azure Service Bus, Polly v8, GitHub Actions, Docker, Cosign, ORAS]
+stack: [.NET 8, Azure SQL Server, Dapper, DbUp, Redis, Azure Service Bus, YARP, Bicep, Azure Container Apps, Key Vault, Polly v8, OpenTelemetry, Dynatrace, GitHub Actions, Docker, Cosign, ORAS]
 node_id: "adr:architecture"
-tags: [architecture, hexagonal, outbox, redis, azure-service-bus, dapper, dbup, azure-sql, cicd, pix-migrator]
+tags: [architecture, hexagonal, zero-trust, yarp, bicep, outbox, redis, azure-service-bus, dapper, dbup, azure-sql, cicd, dynatrace]
 edges:
   - relation: references
     target: "adr:tests"
-updated: 2026-10-06
+updated: 2026-10-07
 ---
 # Project Architecture
 
 ## OVERVIEW
-Hexagonal architecture with vertical slices in .NET 8 aligned with enterprise financial standards. Inbound HTTP requests enforce OIDC perimeter validation (`IOidcAuthValidator` returning 401) and orchestrate use cases interacting with Azure SQL Server 2022 (Dapper/DbUp in `[pix]`), Redis 7, and Azure Service Bus. Enforces CAS leases, durable sequencing, strict read-replica ledger integrity, thread-safe `RefCountedLock` concurrency, bounded `IMemoryCache` (SizeLimit) fallback, and T-SQL OutboxRelay (`TOP` with `UPDLOCK, READPAST`). Continuous delivery packages 6 immutable container images with Cosign keyless signatures, ORAS OCI release manifests, and manual approval gates for Homologation and Production.
+Arquitetura hexagonal com vertical slices em .NET 8 e isolamento perimetral Zero Trust. O tráfego de entrada é unificado pelo YARP API Gateway com propagação W3C (`traceparent` de 55 caracteres) e repasse OIDC. Orquestra microsserviços no Azure Container Apps com persistência transacional ACID no Azure SQL Server 2022 (`[pix]` via Dapper e DbUp), réplica de leitura síncrona (`readScale: Enabled`), admissão fail-closed no Redis 7, comandos financeiros FIFO no Azure Service Bus e entrega contínua com gates Dynatrace SRG e Davis AI.
 
 ## FOLDER STRUCTURE
 <folder_structure>
 ```
 azure-cloud-estudos/
 ├── .github/workflows/                  # CI/CD pipelines (ci-pr, package-release, deploy-dev, promote-hml, promote-prod, rollback)
+├── infra/bicep/                        # Módulos de Infraestrutura como Código (IaC) da Landing Zone
+│   ├── network.bicep                   # VNet 10.0.0.0/16, subnets dedicadas, NSGs e Private DNS Zones
+│   ├── security.bicep                  # Key Vault Standard RBAC, Private Endpoint e Managed Identity
+│   ├── data.bicep                      # Azure SQL (ReadScale), Redis e Service Bus
+│   ├── apps.bicep                      # Container Apps Environment integrado à snet-apps
+│   └── main.bicep                      # Orquestrador mestre dos módulos de infraestrutura
 ├── src/
-│   ├── Pix.Processing.Domain/          # Core domain models, value objects, invariants
-│   ├── Pix.Processing.Application/     # Vertical slice use cases, commands, ports
-│   ├── Pix.Processing.Infrastructure/  # Azure SQL (Dapper, DbUp), Outbox, Redis, ACL adapters
-│   ├── Pix.Billing.Domain/             # Billing aggregate and validation
-│   ├── Pix.Billing.Application/        # Billing generation use cases
-│   ├── Pix.Billing.Infrastructure/     # Billing persistence
-│   ├── Pix.Callbacks.Domain/           # Callback aggregate and retry tracking
-│   ├── Pix.Callbacks.Application/      # Callback dispatch use cases
-│   ├── Pix.Callbacks.Infrastructure/   # Callback persistence and IP-pinned safe transport
-│   ├── Pix.CashOut.Api/                # Cash-out HTTP API with OIDC guards and health probes
-│   ├── Pix.Payment.Api/                # Dynamic billing HTTP API with OIDC guards
-│   ├── Pix.Migrator/                   # Console host for DbUp migrations, schema range checks, and live DB queries
-│   ├── Outbank.Connector/              # Asynchronous worker processing Service Bus sessions
-│   ├── Pix.Reconciliation.Worker/      # Worker triaging uncertain orders via CAS leases
-│   └── Webhook.Dispatcher/             # Worker delivering callbacks with DNS SSRF filtering
+│   ├── Pix.Gateway/                    # API Gateway reverso baseado em YARP com W3C e guards
+│   ├── Pix.Processing.Domain/          # Modelos, invariantes, regras puras e telemetria W3C
+│   ├── Pix.Processing.Application/     # Casos de uso de aceitação, execução e conciliação
+│   ├── Pix.Processing.Infrastructure/  # Adaptadores Azure SQL, Outbox, Redis, Dynatrace e ACLs
+│   ├── Pix.Billing.*/                  # Domínio, aplicação e persistência de cobrança Pix
+│   ├── Pix.Callbacks.*/                # Domínio, aplicação e transporte seguro de webhooks
+│   ├── Pix.CashOut.Api/                # API HTTP de CashOut com guards OIDC e W3C
+│   ├── Pix.Payment.Api/                # API HTTP de Billing dinâmico com guards OIDC
+│   ├── Pix.Migrator/                   # Console host para migrações DbUp e checagem de schema
+│   ├── Outbank.Connector/              # Worker consumindo Service Bus sessions e rastreio W3C
+│   ├── Pix.Reconciliation.Worker/      # Worker de triagem de pedidos incertos via leases CAS
+│   └── Webhook.Dispatcher/             # Worker de entrega de callbacks com filtro DNS SSRF
 └── tests/
-    ├── Unit/                           # Domain, application, and CI/CD promotion gate test suites
-    ├── Integration/                    # Persistence, concurrency, and broker resilience suites
-    └── Architecture/                   # Architectural fitness rule enforcement suites
+    ├── Unit/                           # Suítes de domínio, gates CI/CD, telemetria e Gateway YARP
+    ├── Integration/                    # Suítes de persistência, concorrência e broker real
+    └── Architecture/                   # Testes de fitness arquitetural e conformidade hexagonal
 ```
 </folder_structure>
 
 ## LAYERS
-- **Domain**: Pure business rules and aggregates (PedidoPix, CoordenacaoConta). PROHIBITED: Referencing Application, Infrastructure, or external frameworks.
-- **Application**: Vertical slice use cases and port contracts (AcceptRequestUseCase, ExecutePaymentUseCase). PROHIBITED: Direct dependencies on Infrastructure or SQL drivers.
-- **Infrastructure**: Implementations of persistence ports (Dapper, DbUp, OutboxRepository), Redis caching/rate limiting, and external ACLs.
-- **Hosts (APIs & Workers)**: Minimal entrypoints configuring DI, OpenTelemetry W3C trace context, and health probes (/health/live, /health/ready).
-- **Delivery & Migration Hosts**: Console host Pix.Migrator executando como ACA Job para transições de banco e workflows de entrega contínua com gates manuais.
+- **Domain**: Regras puras, invariantes, agregados (PedidoPix, CoordenacaoConta) e modelos de telemetria (ContextoW3C, MetricasGoldenSignals, SanitizadorTelemetriaPolicy). PROHIBITED: Dependências de frameworks, banco de dados ou camadas externas.
+- **Application**: Casos de uso e portas abstratas (AcceptRequestUseCase, ExecutePaymentUseCase). PROHIBITED: Dependência direta de drivers SQL ou bibliotecas de infraestrutura.
+- **Infrastructure**: Implementações de portas (Dapper, DbUp, OutboxRepository), cache Redis, cliente Dynatrace e adaptadores de integração externa.
+- **Gateway & Borda**: YARP API Gateway (.NET 8) atuando como ponto único de entrada HTTP com propagação de headers W3C, repasse de Bearer token OIDC, health probes e proteção contra path traversal.
+- **Hosts (APIs & Workers)**: Pontos de entrada executáveis configurando DI, OpenTelemetry, sanitização de PII e health probes (/health/live, /health/ready).
+- **Delivery & Migration Hosts**: Pix.Migrator em ACA Job para transições de banco e esteiras GitHub Actions com gates manuais.
 
 ## MODULES
 | Module | Responsibility | Location |
-|--------|-----------------|-------------|
-| Pix.Processing.Domain | Entities, value objects, and lifecycle invariants for Pix orders. | `src/Pix.Processing.Domain/` |
-| Pix.Processing.Application | Vertical slice use cases for acceptance, execution, and reconciliation. | `src/Pix.Processing.Application/` |
-| Pix.Processing.Infrastructure | Azure SQL Dapper repositories, DbUp runner, Outbox, Redis, ACL adapters. | `src/Pix.Processing.Infrastructure/` |
-| Pix.Billing.Domain / App / Infra | Dynamic QR code billing generation, validation, and persistence. | `src/Pix.Billing.*/` |
-| Pix.Callbacks.Domain / App / Infra | Webhook dispatch aggregate, retry state machines, and safe transport. | `src/Pix.Callbacks.*/` |
-| Pix.CashOut.Api / Pix.Payment.Api | HTTP edges with perimeter OIDC validation and health probes. | `src/Pix.*.Api/` |
-| Pix.Migrator | Executable console host running DbUp migrations and schema range checks. | `src/Pix.Migrator/` |
+|---|---|---|
+| Pix.Gateway | API Gateway reverso YARP centralizando roteamento, W3C trace e repasse OIDC. | `src/Pix.Gateway/` |
+| Pix.Processing.Domain | Entidades, value objects, invariantes financeiras e telemetria W3C. | `src/Pix.Processing.Domain/` |
+| Pix.Processing.Application | Casos de uso de aceitação, execução e conciliação financeira. | `src/Pix.Processing.Application/` |
+| Pix.Processing.Infrastructure | Repositórios Dapper, DbUp, Outbox T-SQL, Redis, Dynatrace SRG e OTLP. | `src/Pix.Processing.Infrastructure/` |
+| Pix.Billing.* | Geração, persistência e validação de cobranças dinâmicas Pix (QR Code). | `src/Pix.Billing.*/` |
+| Pix.Callbacks.* | Agregado de webhooks, máquina de retries e transporte seguro de entrega. | `src/Pix.Callbacks.*/` |
+| Pix.CashOut.Api / Payment.Api | APIs HTTP de negócio com autenticação perimetral OIDC e telemetria W3C. | `src/Pix.*.Api/` |
+| Pix.Migrator | Console host executando migrações DbUp com range dinâmico e validação pré-rollback. | `src/Pix.Migrator/` |
 | Workers | Outbank.Connector (sessions), Reconciliation.Worker (CAS), Webhook.Dispatcher (SSRF). | `src/*Worker*/`, `src/Outbank.*/` |
+| Infraestrutura Bicep | Landing Zone Enterprise: VNet 10.0.0.0/16, NSGs, Private Endpoints e Key Vault. | `infra/bicep/` |
 
 ## PATTERNS
-- **Terminal State Precedence (PIX-AUD-01)**: REQUIRED: Check terminal state in ExecutionStore before intention; return StatusAquisicao.JaConcluido on replay.
-- **Crashed Order Recovery (PIX-AUD-02)**: REQUIRED: Transition EmProcessamento orders with expired lease to ResultadoIncerto; block CoordenacaoConta.
-- **Transactional Outbox on Azure SQL (EV-01, INV-13)**: REQUIRED: OutboxRelay queries records via `TOP (@batchSize)` and `WITH (UPDLOCK, READPAST)` on `[pix].[OutboxRecords]`.
-- **Strict Read-Replica Ledger Integrity**: REQUIRED: Query balance via `ApplicationIntent=ReadOnly`; return `0.00m` for unregistered accounts with zero synthetic balances.
-- **Thread-Safe Account Concurrency**: REQUIRED: Protect account mutations using `RefCountedLock` in `AcceptanceStore` avoiding orphaned locks and memory leaks.
-- **Fail-Closed Redis Admission (INV-18)**: REQUIRED: Reject traffic (StatusAdmissao.Indisponivel) when Redis is unavailable. Resilient bounded fallback via `IMemoryCache` (SizeLimit) and Circuit Breaker.
-- **Perimeter OIDC Authentication**: REQUIRED: Validate JWT tokens via `IOidcAuthValidator`; return HTTP 401 Unauthorized on invalid/missing tokens; support Auth:SimulatedMode=true in Dev/CI.
-- **SSRF Safe Transport (INV-15)**: REQUIRED: SafeCallbackTransport pins TCP socket to resolved non-private IP via ConnectCallback.
-- **CI/CD Delivery Governance**: REQUIRED: Deploy automatic exclusively to Dev; Hml and Prod require manual approval gates; same 6 digests promoted without rebuild.
-- **Schema Evolution Control (Expand/Contract)**: REQUIRED: Migrations executed via Pix.Migrator ACA job with 300s command timeout; reject simultaneous Expand and Contract for same feature.
+- **Isolamento de Rede Zero Trust**: REQUIRED: Subnet de dados (`snet-data`) bloqueia 100% de tráfego de Internet e da subnet gateway; conexões aos Private Endpoints permitidas estritamente a partir da `snet-apps`.
+- **API Gateway YARP e Borda Híbrida**: REQUIRED: YARP centraliza tráfego HTTP localmente na porta 8080 com health probes `/health/live` e `/health/ready`, enquanto a borda remota no Azure é protegida por Cloudflare com WAF e TLS.
+- **Propagação W3C Trace Context (INV-20)**: REQUIRED: O gateway e os serviços preservam `traceparent` válido (55 chars) e `tracestate`; gera novo cabeçalho criptograficamente seguro caso ausente ou todo zerado.
+- **Réplica de Leitura Síncrona Azure SQL**: REQUIRED: Consultas contábeis utilizam `ApplicationIntent=ReadOnly`; contas sem lançamentos retornam `0.00m` sem criação de saldos sintéticos.
+- **Transactional Outbox T-SQL (EV-01, INV-13)**: REQUIRED: OutboxRelay consome registros via `TOP (@batchSize)` e `WITH (UPDLOCK, READPAST)` em `[pix].[OutboxRecords]`, preservando contexto W3C.
+- **Admissão Fail-Closed no Redis (INV-18)**: REQUIRED: Rejeitar tráfego sob indisponibilidade do Redis, com fallback controlado via `IMemoryCache` bounded (SizeLimit) e Circuit Breaker.
+- **Autenticação OIDC Perimetral**: REQUIRED: `IOidcAuthValidator` valida tokens JWT retornando HTTP 401; repassado intacto pelo YARP Gateway (`Authorization: Bearer`).
+- **Mitigação de Path Traversal**: REQUIRED: `SecurityAndAuditMiddleware` rejeita sequências `..` e `%2e%2e` no path e query com HTTP 400, tolerando consultas de intervalo legítimas.
+- **Sanitização de PII em Telemetria e Logs**: REQUIRED: Expurgo de CPFs, emails, senhas e tokens Bearer antes do envio a logs ou ao coletor OpenTelemetry/Dynatrace.
 
 <code_patterns>
-# REQUIRED: Perimeter OIDC authentication validation in API controllers
-if (!_authValidator.ValidateToken(authHeader))
-    return Unauthorized(new { message = "Token OIDC inválido ou ausente." });
+# REQUIRED: Validação de traceparent W3C com tratamento de zeros no Gateway
+if (!W3CHeaderTransformProvider.IsValidW3CTraceParent(incomingTrace))
+    outgoingTrace = W3CHeaderTransformProvider.GenerateW3CTraceParent();
 
-# REQUIRED: Azure SQL Server T-SQL Outbox batch query with skip-lock hints
+# REQUIRED: Azure SQL Server T-SQL Outbox batch query com skip-lock
 var sql = @"SELECT TOP (@batchSize) EventId, EventType, Payload, SessionId, Retries
             FROM [pix].[OutboxRecords] WITH (UPDLOCK, READPAST)
             WHERE Status = 'PENDING' AND (ExpiresAt IS NULL OR ExpiresAt < @Now)";
 
-# REQUIRED: Read replica strict ledger integrity returning 0 for missing accounts
-var saldo = await connection.QuerySingleOrDefaultAsync<decimal?>(
-    "SELECT SaldoDisponivel FROM [pix].[Saldos] WHERE ContaId = @ContaId", new { ContaId = contaId });
-return saldo ?? 0.00m; // PROHIBITED: Fabricating synthetic balance
+# REQUIRED: Isolamento estrito de NSG Bicep bloqueando Internet na snet-data
+access: 'Deny'
+sourceAddressPrefix: 'Internet'
+destinationAddressPrefix: snetDataPrefix
 
-# REQUIRED: Thread-safe RefCountedLock per account in AcceptanceStore
-var lockObj = _accountLocks.GetOrAdd(contaId, _ => new RefCountedLock());
-await lockObj.WaitAsync(ct);
-try { /* atomic persistence */ } finally { lockObj.Release(); }
+# PROHIBITED: Exposição de senha em texto plano ou IP público em recursos PaaS
+resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
+  properties: { publicNetworkAccess: 'Disabled' }
+}
 </code_patterns>
 
 ## INTEGRATIONS
 | External Service / Component | Purpose | Connection / Authentication Method |
-|------------------------------|---------|-------------------------------------|
-| Azure SQL Server 2022 | ACID store para pedidos, outbox e saldos via Dapper + DbUp no schema [pix]. Suporte a réplica síncrona com ApplicationIntent=ReadOnly. | Microsoft.Data.SqlClient com SqlTransaction e Dapper |
-| Redis 7 | Admission rate limiting e cache com fallback resiliente para IMemoryCache bounded e Circuit Breaker. | StackExchange.Redis connection multiplexer |
-| Azure Service Bus (Emulator) | Message broker para comandos financeiros com FIFO sessions (pix-cashout-requested, pix-cashout-completed). | Azure.Messaging.ServiceBus client com SessionId = ContaId |
-| Outbank / SPI BACEN | Liquidação bancária externa com timeout estrito de 2s e backoff com jitter via Polly v8. | Outbank ACL Adapter com Microsoft.Extensions.Http.Resilience |
-| Ping Identity / OIDC | Autenticação perimetral via IOidcAuthValidator / JWT Bearer com suporte a modo simulado (Auth:SimulatedMode=true) em Dev/CI. | Microsoft.AspNetCore.Authentication.JwtBearer |
-| SafeCallbackTransport | HTTP client delivering webhooks com filtro DNS SSRF pinned ao socket. | SocketsHttpHandler |
-| Azure Container Registry & ORAS | Armazenamento de imagens imutáveis e manifestos selados como artefatos OCI com assinatura Cosign keyless. | OIDC via GitHub Actions e ORAS CLI |
+|---|---|---|
+| YARP API Gateway | Roteador reverso unificado, injeção W3C e repasse de auth. | Microsoft.ReverseProxy (.NET 8) na porta 8080 |
+| Azure Virtual Network & NSGs | Landing Zone com isolamento Zero Trust em 3 subnets (/24). | Bicep Network Module com Private Endpoints |
+| Azure SQL Server 2022 | Armazenamento ACID transacional e réplica de leitura síncrona. | Dapper + DbUp no schema [pix] com Private Endpoint |
+| Redis 7 | Controle de admissão e rate limiting com fallback resiliente. | StackExchange.Redis com Private Endpoint |
+| Azure Service Bus | Broker para comandos financeiros com FIFO sessions. | Azure.Messaging.ServiceBus com Private Endpoint |
+| Azure Key Vault | Custódia de certificados mTLS e segredos com RBAC estrito. | Managed Identity com Secrets Store CSI e Private Endpoint |
+| Dynatrace (SRG & Davis AI) | Quality gate de SLO em Hml e detecção de anomalias em Prod. | OTLP HTTP (porta 4318) + Dynatrace API v2 |
+| Outbank / SPI BACEN | Liquidação bancária externa com timeout de 2s e Polly v8. | Outbank ACL Adapter com Microsoft.Extensions.Http |
 
 ## REFERENCES
-- [**TESTS.md**](./TESTS.md): Testing strategies, test suites, and execution commands.
-- [**plataforma_pix.md**](../feature/plataforma_pix.md): Core Pix platform domain capabilities, contracts, rules, and execution flow.
-- [**qa_pipeline.md**](../feature/qa_pipeline.md): Continuous testing pyramid and quality pipeline specifications.
-- [**cicd_pipeline.md**](../feature/cicd_pipeline.md): Esteira CI/CD, gates manuais, proveniência Cosign e rollback determinístico.
+- [**README.md**](../README.md): Índice principal da documentação técnica.
+- [**TESTS.md**](./TESTS.md): Estratégias de testes, suítes unitárias, de integração e infraestrutura.
+- [**infra_landing_zone.md**](../feature/infra_landing_zone.md): Especificação detalhada da Landing Zone e API Gateway YARP.
+- [**plataforma_pix.md**](../feature/plataforma_pix.md): Domínio Pix, contratos, invariantes e fluxo de execução.
+- [**qa_pipeline.md**](../feature/qa_pipeline.md): Pipeline de testes contínuos e verificação de perímetro.
+- [**cicd_pipeline.md**](../feature/cicd_pipeline.md): Esteira CI/CD, proveniência Cosign e rollback automatizado.
+- [**observabilidade_dynatrace.md**](../feature/observabilidade_dynatrace.md): Observabilidade de produção e quality gates com Davis AI.

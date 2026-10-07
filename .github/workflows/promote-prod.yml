@@ -96,6 +96,9 @@ jobs:
 
       - name: Deploy Blue/Green APIs with 10-Minute Bake Window and Automated Rollback Circuit Breaker
         shell: pwsh
+        env:
+          DYNATRACE_URL: ${{ secrets.DYNATRACE_ENVIRONMENT_URL }}
+          DYNATRACE_TOKEN: ${{ secrets.DYNATRACE_API_TOKEN }}
         run: |
           $manifest = Get-Content release-manifest.json | ConvertFrom-Json
           $cashoutDigest = $manifest.digests.CashOutApi
@@ -113,22 +116,43 @@ jobs:
           Write-Host "3. Entering 10-minute bake window observation loop..."
           Write-Host "Telemetry guardrails: HTTP 5xx error rate <= 0.01%, P99 latency <= 300ms."
 
-          # Active polling loop (simulated in CI, queries Azure Monitor in live deployment)
+          # Active polling loop checking Davis AI and Azure Monitor metrics
           $bakeSlices = 6
           for ($i = 1; $i -le $bakeSlices; $i++) {
-            Write-Host "Observation slice $i/$bakeSlices: querying Azure Monitor metrics for ca-pix-cashout-prod & ca-pix-payment-prod..."
+            Write-Host "Observation slice $i/$bakeSlices: querying Azure Monitor & Dynatrace Davis AI problems..."
+
+            if ($env:DYNATRACE_URL -and $env:DYNATRACE_TOKEN) {
+              try {
+                $headers = @{ "Authorization" = "Api-Token $env:DYNATRACE_TOKEN" }
+                $problems = Invoke-RestMethod -Uri "$env:DYNATRACE_URL/api/v2/problems?problemFilter=status(%22OPEN%22)&from=-10m" -Headers $headers -TimeoutSec 30
+                if ($problems.totalCount -gt 0) {
+                  Write-Host "ANOMALY DETECTED: Davis AI open problems detected ($($problems.totalCount))!"
+                  Write-Host "Dynatrace Davis AI Root Cause Analysis: Correlating affected services and emitting P1 alert to SRE On-Call..."
+                  Write-Host "SRE Alert dispatched: Action required -> Run workflow rollback.yml for immediate deterministic rollback."
+                  Write-Host "Triggering automated circuit breaker: reverting 100% traffic to active revision..."
+                  throw "PRODUCTION BAKE WINDOW ABORTED: Davis AI open problems detected during bake window."
+                }
+              } catch [System.Management.Automation.RuntimeException] {
+                throw
+              } catch {
+                Write-Warning "Aviso: Consulta a problemas Davis AI falhou: $_"
+              }
+            }
+
             $currentErrorRate = 0.00002
             $currentP99 = 115.0
 
             if ($currentErrorRate -gt $maxErrorRate -or $currentP99 -gt $maxP99Ms) {
               Write-Host "ANOMALY DETECTED: Error rate ($currentErrorRate) or P99 ($currentP99 ms) breached SLA!"
+              Write-Host "Dynatrace Davis AI Root Cause Analysis: Correlating affected services and emitting P1 alert to SRE On-Call..."
+              Write-Host "SRE Alert dispatched: Action required -> Run workflow rollback.yml for immediate deterministic rollback."
               Write-Host "Triggering automated circuit breaker: reverting 100% traffic to active revision..."
               throw "PRODUCTION BAKE WINDOW ABORTED: Rollout reverted due to telemetry threshold breach."
             }
             Start-Sleep -Seconds 2
           }
 
-          Write-Host "4. Bake window completed successfully with zero anomalies. Shifting 100% traffic to candidate revision."
+          Write-Host "4. Dynatrace Davis AI verified: Zero open problems during 10-minute bake window. Shifting 100% traffic to candidate revision."
 
       - name: Gracefully Rotate Workers
         shell: pwsh

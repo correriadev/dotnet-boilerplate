@@ -28,6 +28,8 @@ public class OutboxRecord
     public DateTimeOffset? ExpiresAt { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
     public DateTimeOffset? PublishedAt { get; set; }
+    public string? TraceParent { get; set; }
+    public string? TraceState { get; set; }
 }
 
 public class InboxRecord

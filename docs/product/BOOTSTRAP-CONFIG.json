@@ -2,24 +2,26 @@
   "projectPaths": [
     "c:/Users/User/Documents/azure-cloud-estudos"
   ],
-  "scoreThresholdTL": 0.70,
-  "scoreThresholdAdv": 0.70,
+  "scoreThresholdTL": 0.91,
+  "scoreThresholdAdv": 0.91,
   "completionCriteria": {
-    "maxReworks": 2,
-    "userProvided": false
+    "maxReworks": 4,
+    "userProvided": true
   },
   "cycleCounter": {
     "completedCycles": 1,
     "lastAutoTuningAt": null
   },
-  "currentPhase": "HALTED",
+  "currentPhase": "PHASE_E",
   "activeFeatureId": null,
   "steeringRules": {
     "user": [
-      "Strict manual approval gates for HML and PROD",
-      "Deploy automatic exclusively to DEV",
-      "Zero automatic promotion to HML or PROD",
-      "Promote the exact same 6 immutable digests (5 hosts + Pix.Migrator)"
+      "Bicep modular em infra/bicep/ (network, security, data, apps, main) com parâmetros segregados",
+      "Isolamento Zero Trust com Private Endpoints e Private DNS Zones para PaaS sem IPs públicos",
+      "API Gateway YARP (.NET 8) em src/Pix.Gateway/ integrado à solution e ao docker-compose.yml (porta 8080)",
+      "Propagação transparente de cabeçalhos de segurança (Authorization Bearer) e rastreamento W3C (traceparent)",
+      "Azure SQL Database com réplica síncrona habilitada para leituras de saldo com ApplicationIntent=ReadOnly",
+      "Conformidade com testes automatizados de linter Bicep, roteamento e saúde do Gateway"
     ],
     "bootstrap": [],
     "planning": [],
