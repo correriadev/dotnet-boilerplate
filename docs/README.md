@@ -20,6 +20,17 @@ Index of project technical documentation for **Modernização da Plataforma Pix*
 | [**CICD.md**](./adr/CICD.md) | Proposed GitHub Actions release strategy and acceptance criteria. | Optional |
 | [**CONTAINER-APPS.md**](./adr/CONTAINER-APPS.md) | Proposed Azure runtime and scaling policy. | Optional |
 
+## Modernization & Engineering Engine (Fractal Methodology)
+
+| Document | Description | Target |
+|----------|-------------|--------|
+| [**BLUEPRINT.md**](./engineering/BLUEPRINT.md) | Blueprint Canônico: Ciclo 0, cadência fractal em 4 tempos e regras de camadas. | **Mandatory for Agents** |
+| [**LIFECYCLE.md**](./engineering/LIFECYCLE.md) | Máquina de estados da fatia, gates de transição e schema de handoff.json. | **Mandatory for Agents** |
+| [**ORACLE.md**](./engineering/ORACLE.md) | Protocolo de caracterização do legado, fixtures e oráculo de paridade. | **Mandatory for Agents** |
+| [**WALKING-SKELETON.md**](./engineering/WALKING-SKELETON.md) | Guia de inicialização do Ciclo 0 (/health + Dynatrace + CI/CD isolado). | **Mandatory for Agents** |
+| [**AGENT-CONTRACTS.md**](./engineering/AGENT-CONTRACTS.md) | Matriz dos 6 papéis de agentes, escopos de arquivos e limites de atuação. | **Mandatory for Agents** |
+| [**MIGRATION.md**](./engineering/MIGRATION.md) | Protocolo de autoridade de escrita, corte no YARP e runbooks de rollback. | **Mandatory for Cutover** |
+
 ## Recommended Reading Order
 
 If an exact path is supplied, read it directly. Otherwise use this order:
