@@ -14,6 +14,7 @@ Index of project technical documentation for **Modernização da Plataforma Pix*
 | [**plataforma_pix.md**](./feature/plataforma_pix.md) | Core Pix platform domain capabilities, contracts, rules, and execution flow. | **Mandatory** |
 | [**qa_pipeline.md**](./feature/qa_pipeline.md) | Continuous testing pyramid, quality pipeline, and perimetral auth verification. | **Mandatory** |
 | [**cicd_pipeline.md**](./feature/cicd_pipeline.md) | Esteira de CI/CD automatizada, gates manuais para Hml/Prod, proveniência Cosign e rollback determinístico. | **Mandatory** |
+| [**Hub de Skills GitHub Actions**](./pipeline/README.md) | Catálogo de skills de IA, validação com actionlint/zizmor, segurança, eficiência e templates de pipelines. | **Mandatory** |
 | [**observabilidade_dynatrace.md**](./feature/observabilidade_dynatrace.md) | Observabilidade de produção, propagação W3C, sanitização de PII e quality gates com Dynatrace SRG e Davis AI. | **Mandatory** |
 | [**pbb_cicd_pipeline.md**](./feature/pbb_cicd_pipeline.md) | Product Backlog Building (PBB) da esteira de CI/CD e entrega contínua. | **Mandatory** |
 | [**pbb_infra_landing_zone.md**](./feature/pbb_infra_landing_zone.md) | Product Backlog Building (PBB) da infraestrutura cloud-native, borda e Landing Zone Enterprise. | **Mandatory** |
