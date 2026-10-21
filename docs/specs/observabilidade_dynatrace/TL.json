@@ -1,6 +1,0 @@
-{
-  "featureId": "F001",
-  "score": 1.00,
-  "openPoints": [],
-  "architectureTip": "Adote a estratégia de observabilidade baseada no padrão de Context Propagation assíncrono integrado a interceptadores transversais de telemetria, assegurando rastreabilidade ponta a ponta sem degradação do isolamento transacional."
-}
