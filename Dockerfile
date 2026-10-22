@@ -15,6 +15,8 @@ RUN dotnet publish src/Pix.HealthCheck.Api/Pix.HealthCheck.Api.csproj -c Release
 
 # Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime
+RUN apk add --no-cache icu-libs
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 WORKDIR /app
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
