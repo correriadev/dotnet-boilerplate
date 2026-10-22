@@ -1,8 +1,8 @@
 @description('Location for general resources')
 param location string = resourceGroup().location
 
-@description('Location for data resources (SQL and Redis) to prevent regional capacity constraints')
-param dataLocation string = 'eastus2'
+@description('Location for SQL Database to ensure regional capacity availability')
+param sqlLocation string = 'centralus'
 
 @description('Workload name identifier')
 param workloadName string = 'pixlab'
@@ -21,15 +21,16 @@ param adminPassword string
 param keyVaultName string
 
 var suffix = uniqueString(resourceGroup().id)
-var sqlServerName = take('sql-${workloadName}-${environment}-e2-${suffix}', 63)
+var sqlServerName = take('sql-${workloadName}-${environment}-c1-${suffix}', 63)
 var sqlDbName = 'sqldb-${workloadName}-${environment}'
-var redisName = take('redis-${workloadName}-${environment}-e2-${suffix}', 63)
+// Azure Managed Redis exige nome estritamente alfanumérico (sem hífens)
+var redisName = take('amr${workloadName}${environment}${suffix}', 60)
 var serviceBusName = take('sb-${workloadName}-${environment}-${suffix}', 50)
 
-// 1. Azure SQL Server & Database (Econômico para Estudo: SKU Basic em região com capacidade)
+// 1. Azure SQL Server & Database (Econômico: SKU Basic em centralus)
 resource sqlServer 'Microsoft.Sql/servers@2023-08-01-preview' = {
   name: sqlServerName
-  location: dataLocation
+  location: sqlLocation
   properties: {
     administratorLogin: adminLogin
     administratorLoginPassword: adminPassword
@@ -52,7 +53,7 @@ resource sqlFirewallRuleAzure 'Microsoft.Sql/servers/firewallRules@2023-08-01-pr
 resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   parent: sqlServer
   name: sqlDbName
-  location: dataLocation
+  location: sqlLocation
   sku: {
     name: 'Basic'
     tier: 'Basic'
@@ -64,19 +65,22 @@ resource sqlDatabase 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   }
 }
 
-// 2. Azure Cache for Redis (Econômico: SKU Basic C0 em região com capacidade)
-resource redisCache 'Microsoft.Cache/Redis@2023-08-01' = {
+// 2. Azure Managed Redis (Nova geração substituindo o Azure Cache for Redis legado)
+resource redisEnterprise 'Microsoft.Cache/redisEnterprise@2024-09-01-preview' = {
   name: redisName
-  location: dataLocation
+  location: location
+  sku: {
+    name: 'Balanced_B0'
+  }
+}
+
+resource redisDatabase 'Microsoft.Cache/redisEnterprise/databases@2024-09-01-preview' = {
+  name: 'default'
+  parent: redisEnterprise
   properties: {
-    sku: {
-      name: 'Basic'
-      family: 'C'
-      capacity: 0
-    }
-    enableNonSslPort: false
-    minimumTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled'
+    clientProtocol: 'Encrypted'
+    clusteringPolicy: 'OSSCluster'
+    evictionPolicy: 'NoEviction'
   }
 }
 
@@ -128,7 +132,7 @@ resource secretRedis 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: keyVault
   name: 'RedisConnectionString'
   properties: {
-    value: '${redisCache.properties.hostName}:${redisCache.properties.sslPort},password=${redisCache.listKeys().primaryKey},ssl=True,abortConnect=False'
+    value: '${redisEnterprise.properties.hostName}:${redisDatabase.properties.port},password=${redisDatabase.listKeys().primaryKey},ssl=True,abortConnect=False'
   }
 }
 
@@ -142,7 +146,7 @@ resource secretServiceBus 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 
 output sqlServerFqdn string = sqlServer.properties.fullyQualifiedDomainName
 output sqlDatabaseName string = sqlDatabase.name
-output redisHostName string = redisCache.properties.hostName
+output redisHostName string = redisEnterprise.properties.hostName
 output serviceBusNamespaceFqdn string = '${serviceBusNamespace.name}.servicebus.windows.net'
 output serviceBusQueueName string = serviceBusQueue.name
 

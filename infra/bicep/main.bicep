@@ -9,8 +9,8 @@ param workloadName string = 'pixlab'
 @description('Primary location for resources')
 param location string = resourceGroup().location
 
-@description('Location for data resources (SQL and Redis) to prevent regional capacity constraints')
-param dataLocation string = 'eastus2'
+@description('Location for SQL Database to prevent regional capacity constraints')
+param sqlLocation string = 'centralus'
 
 @description('SQL administrator login')
 param sqlAdminLogin string = 'pixadmin'
@@ -29,12 +29,12 @@ module securityModule 'security.bicep' = {
   }
 }
 
-// 2. Módulo de Dados (Azure SQL Basic, Redis Basic, Service Bus Standard)
+// 2. Módulo de Dados (Azure SQL Basic, Azure Managed Redis, Service Bus Standard)
 module dataModule 'data.bicep' = {
   name: 'data-deployment'
   params: {
     location: location
-    dataLocation: dataLocation
+    sqlLocation: sqlLocation
     workloadName: workloadName
     environment: environment
     adminLogin: sqlAdminLogin
