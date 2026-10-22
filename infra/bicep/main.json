@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "12708524063615114315"
+      "templateHash": "12237279718552373032"
     }
   },
   "parameters": {
@@ -30,11 +30,11 @@
         "description": "Primary location for resources"
       }
     },
-    "dataLocation": {
+    "sqlLocation": {
       "type": "string",
-      "defaultValue": "eastus2",
+      "defaultValue": "centralus",
       "metadata": {
-        "description": "Location for data resources (SQL and Redis) to prevent regional capacity constraints"
+        "description": "Location for SQL Database to prevent regional capacity constraints"
       }
     },
     "sqlAdminLogin": {
@@ -216,8 +216,8 @@
           "location": {
             "value": "[parameters('location')]"
           },
-          "dataLocation": {
-            "value": "[parameters('dataLocation')]"
+          "sqlLocation": {
+            "value": "[parameters('sqlLocation')]"
           },
           "workloadName": {
             "value": "[parameters('workloadName')]"
@@ -242,7 +242,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.48.1.52935",
-              "templateHash": "13514495927972260870"
+              "templateHash": "13622834675098462117"
             }
           },
           "parameters": {
@@ -253,11 +253,11 @@
                 "description": "Location for general resources"
               }
             },
-            "dataLocation": {
+            "sqlLocation": {
               "type": "string",
-              "defaultValue": "eastus2",
+              "defaultValue": "centralus",
               "metadata": {
-                "description": "Location for data resources (SQL and Redis) to prevent regional capacity constraints"
+                "description": "Location for SQL Database to ensure regional capacity availability"
               }
             },
             "workloadName": {
@@ -296,9 +296,9 @@
           },
           "variables": {
             "suffix": "[uniqueString(resourceGroup().id)]",
-            "sqlServerName": "[take(format('sql-{0}-{1}-e2-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
+            "sqlServerName": "[take(format('sql-{0}-{1}-c1-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
             "sqlDbName": "[format('sqldb-{0}-{1}', parameters('workloadName'), parameters('environment'))]",
-            "redisName": "[take(format('redis-{0}-{1}-e2-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
+            "redisName": "[take(format('amr{0}{1}{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 60)]",
             "serviceBusName": "[take(format('sb-{0}-{1}-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 50)]"
           },
           "resources": [
@@ -306,7 +306,7 @@
               "type": "Microsoft.Sql/servers",
               "apiVersion": "2023-08-01-preview",
               "name": "[variables('sqlServerName')]",
-              "location": "[parameters('dataLocation')]",
+              "location": "[parameters('sqlLocation')]",
               "properties": {
                 "administratorLogin": "[parameters('adminLogin')]",
                 "administratorLoginPassword": "[parameters('adminPassword')]",
@@ -331,7 +331,7 @@
               "type": "Microsoft.Sql/servers/databases",
               "apiVersion": "2023-08-01-preview",
               "name": "[format('{0}/{1}', variables('sqlServerName'), variables('sqlDbName'))]",
-              "location": "[parameters('dataLocation')]",
+              "location": "[parameters('sqlLocation')]",
               "sku": {
                 "name": "Basic",
                 "tier": "Basic",
@@ -346,20 +346,26 @@
               ]
             },
             {
-              "type": "Microsoft.Cache/redis",
-              "apiVersion": "2023-08-01",
+              "type": "Microsoft.Cache/redisEnterprise",
+              "apiVersion": "2024-09-01-preview",
               "name": "[variables('redisName')]",
-              "location": "[parameters('dataLocation')]",
-              "properties": {
-                "sku": {
-                  "name": "Basic",
-                  "family": "C",
-                  "capacity": 0
-                },
-                "enableNonSslPort": false,
-                "minimumTlsVersion": "1.2",
-                "publicNetworkAccess": "Enabled"
+              "location": "[parameters('location')]",
+              "sku": {
+                "name": "Balanced_B0"
               }
+            },
+            {
+              "type": "Microsoft.Cache/redisEnterprise/databases",
+              "apiVersion": "2024-09-01-preview",
+              "name": "[format('{0}/{1}', variables('redisName'), 'default')]",
+              "properties": {
+                "clientProtocol": "Encrypted",
+                "clusteringPolicy": "OSSCluster",
+                "evictionPolicy": "NoEviction"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Cache/redisEnterprise', variables('redisName'))]"
+              ]
             },
             {
               "type": "Microsoft.ServiceBus/namespaces",
@@ -407,10 +413,11 @@
               "apiVersion": "2023-07-01",
               "name": "[format('{0}/{1}', parameters('keyVaultName'), 'RedisConnectionString')]",
               "properties": {
-                "value": "[format('{0}:{1},password={2},ssl=True,abortConnect=False', reference(resourceId('Microsoft.Cache/redis', variables('redisName')), '2023-08-01').hostName, reference(resourceId('Microsoft.Cache/redis', variables('redisName')), '2023-08-01').sslPort, listKeys(resourceId('Microsoft.Cache/redis', variables('redisName')), '2023-08-01').primaryKey)]"
+                "value": "[format('{0}:{1},password={2},ssl=True,abortConnect=False', reference(resourceId('Microsoft.Cache/redisEnterprise', variables('redisName')), '2024-09-01-preview').hostName, reference(resourceId('Microsoft.Cache/redisEnterprise/databases', variables('redisName'), 'default'), '2024-09-01-preview').port, listKeys(resourceId('Microsoft.Cache/redisEnterprise/databases', variables('redisName'), 'default'), '2024-09-01-preview').primaryKey)]"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.Cache/redis', variables('redisName'))]"
+                "[resourceId('Microsoft.Cache/redisEnterprise/databases', variables('redisName'), 'default')]",
+                "[resourceId('Microsoft.Cache/redisEnterprise', variables('redisName'))]"
               ]
             },
             {
@@ -436,7 +443,7 @@
             },
             "redisHostName": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.Cache/redis', variables('redisName')), '2023-08-01').hostName]"
+              "value": "[reference(resourceId('Microsoft.Cache/redisEnterprise', variables('redisName')), '2024-09-01-preview').hostName]"
             },
             "serviceBusNamespaceFqdn": {
               "type": "string",

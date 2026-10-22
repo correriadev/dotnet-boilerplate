@@ -98,11 +98,12 @@ jobs:
             --resource-group "rg-lab-observabilidade" \
             --target-port 8080
 
-          echo "Updating app-pix-worker with new image..."
+          echo "Updating app-pix-worker with new image and Key Vault configuration..."
           az containerapp update \
             --name "app-pix-worker" \
             --resource-group "rg-lab-observabilidade" \
-            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}"
+            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}" \
+            --set-env-vars "KeyVaultUri=https://kv-pixlab-dev-c4vrp5pjwt.vault.azure.net/" "ManagedIdentityClientId=b38f8d46-3da7-4616-8b25-d02fd05dde60"
 
       - name: Live Smoke Test (/health on Azure)
         run: |
