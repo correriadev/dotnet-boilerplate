@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.48.1.52935",
-      "templateHash": "13654760184044650935"
+      "templateHash": "12708524063615114315"
     }
   },
   "parameters": {
@@ -242,7 +242,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.48.1.52935",
-              "templateHash": "6056126261959409597"
+              "templateHash": "13514495927972260870"
             }
           },
           "parameters": {
@@ -296,9 +296,9 @@
           },
           "variables": {
             "suffix": "[uniqueString(resourceGroup().id)]",
-            "sqlServerName": "[take(format('sql-{0}-{1}-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
+            "sqlServerName": "[take(format('sql-{0}-{1}-e2-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
             "sqlDbName": "[format('sqldb-{0}-{1}', parameters('workloadName'), parameters('environment'))]",
-            "redisName": "[take(format('redis-{0}-{1}-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
+            "redisName": "[take(format('redis-{0}-{1}-e2-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 63)]",
             "serviceBusName": "[take(format('sb-{0}-{1}-{2}', parameters('workloadName'), parameters('environment'), variables('suffix')), 50)]"
           },
           "resources": [
