@@ -92,23 +92,34 @@ jobs:
 
       - name: Deploy to Azure Container App
         run: |
-          echo "Updating app-pix-worker with new image and setting target port to 8080..."
+          echo "Updating ingress target port to 8080..."
+          az containerapp ingress update \
+            --name "app-pix-worker" \
+            --resource-group "rg-lab-observabilidade" \
+            --target-port 8080
+
+          echo "Updating app-pix-worker with new image..."
           az containerapp update \
             --name "app-pix-worker" \
             --resource-group "rg-lab-observabilidade" \
-            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}" \
-            --target-port 8080
+            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}"
 
       - name: Live Smoke Test (/health on Azure)
         run: |
           echo "Aguardando nova revisão estabilizar no Azure Container Apps..."
-          sleep 15
-          RESPONSE=$(curl -s -f https://app-pix-worker.greenbay-2b95714e.eastus.azurecontainerapps.io/health || echo "FAIL")
-          echo "Resposta do HealthCheck: $RESPONSE"
-          if [[ "$RESPONSE" == *"Healthy"* ]]; then
-            echo "SUCESSO: HealthCheck respondeu 200 OK na Azure!"
-          else
-            echo "ERRO: HealthCheck não respondeu Healthy!"
-            exit 1
-          fi
+          sleep 20
+          URL="https://app-pix-worker.greenbay-2b95714e.eastus.azurecontainerapps.io/health"
+          echo "Testando endpoint: $URL"
+          for i in {1..6}; do
+            echo "Tentativa $i de 6..."
+            RESPONSE=$(curl -s -f "$URL" || echo "FAIL")
+            echo "Resposta recebida: $RESPONSE"
+            if [[ "$RESPONSE" == *"Healthy"* ]]; then
+              echo "SUCESSO: HealthCheck respondeu 200 OK na Azure!"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "ERRO: HealthCheck não respondeu Healthy dentro do tempo esperado!"
+          exit 1
 
