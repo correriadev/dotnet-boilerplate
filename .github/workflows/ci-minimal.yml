@@ -65,3 +65,50 @@ jobs:
           docker stop healthcheck-test
           docker rm healthcheck-test
 
+  deploy-azure:
+    name: Continuous Deployment to Azure Container Apps
+    needs: [build-and-test, docker-validation]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name acrlabcorreadev
+
+      - name: Build and Push Docker Image to ACR
+        run: |
+          echo "Building image tagged with commit SHA: ${{ github.sha }}..."
+          docker build -t acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }} -t acrlabcorreadev.azurecr.io/pix-healthcheck:latest .
+          docker push acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
+          docker push acrlabcorreadev.azurecr.io/pix-healthcheck:latest
+
+      - name: Deploy to Azure Container App
+        run: |
+          echo "Updating app-pix-worker with new image and setting target port to 8080..."
+          az containerapp update \
+            --name "app-pix-worker" \
+            --resource-group "rg-lab-observabilidade" \
+            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}" \
+            --target-port 8080
+
+      - name: Live Smoke Test (/health on Azure)
+        run: |
+          echo "Aguardando nova revisão estabilizar no Azure Container Apps..."
+          sleep 15
+          RESPONSE=$(curl -s -f https://app-pix-worker.greenbay-2b95714e.eastus.azurecontainerapps.io/health || echo "FAIL")
+          echo "Resposta do HealthCheck: $RESPONSE"
+          if [[ "$RESPONSE" == *"Healthy"* ]]; then
+            echo "SUCESSO: HealthCheck respondeu 200 OK na Azure!"
+          else
+            echo "ERRO: HealthCheck não respondeu Healthy!"
+            exit 1
+          fi
+
