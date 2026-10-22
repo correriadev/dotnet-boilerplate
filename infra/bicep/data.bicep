@@ -21,9 +21,9 @@ param adminPassword string
 param keyVaultName string
 
 var suffix = uniqueString(resourceGroup().id)
-var sqlServerName = take('sql-${workloadName}-${environment}-${suffix}', 63)
+var sqlServerName = take('sql-${workloadName}-${environment}-e2-${suffix}', 63)
 var sqlDbName = 'sqldb-${workloadName}-${environment}'
-var redisName = take('redis-${workloadName}-${environment}-${suffix}', 63)
+var redisName = take('redis-${workloadName}-${environment}-e2-${suffix}', 63)
 var serviceBusName = take('sb-${workloadName}-${environment}-${suffix}', 50)
 
 // 1. Azure SQL Server & Database (Econômico para Estudo: SKU Basic em região com capacidade)
