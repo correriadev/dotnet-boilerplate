@@ -51,8 +51,8 @@ resource roleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
-// Role Assignment: Key Vault Administrator (00482a5a-887f-4fb3-b333-3442a60087b4) para o criador do deployment
-var keyVaultAdminRoleId = '00482a5a-887f-4fb3-b333-3442a60087b4'
+// Role Assignment: Key Vault Administrator (00482a5a-887f-4fb3-b363-3b7fe8e74483) para o criador do deployment
+var keyVaultAdminRoleId = '00482a5a-887f-4fb3-b363-3b7fe8e74483'
 param deployerPrincipalId string = ''
 
 resource deployerRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(deployerPrincipalId)) {

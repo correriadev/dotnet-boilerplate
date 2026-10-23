@@ -19,19 +19,23 @@ param sqlAdminLogin string = 'pixadmin'
 @description('Administrator password for Azure SQL Server')
 param sqlAdminPassword string
 
+@description('Principal ID of the deployer to grant Key Vault Administrator access')
+param deployerPrincipalId string = ''
+
 // 1. Módulo de Segurança (Key Vault + User-Assigned Managed Identity)
 module securityModule 'security.bicep' = {
-  name: 'security-deployment'
+  name: 'security-deployment-${environment}'
   params: {
     location: location
     workloadName: workloadName
     environment: environment
+    deployerPrincipalId: deployerPrincipalId
   }
 }
 
 // 2. Módulo de Dados (Azure SQL Basic, Azure Managed Redis, Service Bus Standard)
 module dataModule 'data.bicep' = {
-  name: 'data-deployment'
+  name: 'data-deployment-${environment}'
   params: {
     location: location
     sqlLocation: sqlLocation
