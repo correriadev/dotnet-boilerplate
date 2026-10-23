@@ -71,7 +71,7 @@ jobs:
               echo "SUB_ID=$env:SUB_ID_PROD" >> $env:GITHUB_OUTPUT
               echo "APP_NAME=app-pix-worker-prod" >> $env:GITHUB_OUTPUT
               echo "RG_NAME=rg-lab-observabilidade" >> $env:GITHUB_OUTPUT
-              echo "KV_NAME=kv-pixlab-prod-c4vrp5pjwt" >> $env:GITHUB_OUTPUT
+              echo "KV_NAME=kv-pixlab-prod-c4vrp5pjw" >> $env:GITHUB_OUTPUT
             }
             default {
               Write-Error "Invalid environment: $env:INPUT_ENV"

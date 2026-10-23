@@ -62,7 +62,7 @@ if ([string]::IsNullOrEmpty($KeyVaultName)) {
     switch ($Environment.ToLowerInvariant()) {
         { $_ -in @("development", "dev") } { $KeyVaultName = "kv-pixlab-dev-c4vrp5pjwt" }
         { $_ -in @("homologation", "hml") } { $KeyVaultName = "kv-pixlab-hml-c4vrp5pjwt" }
-        { $_ -in @("production", "prod") }  { $KeyVaultName = "kv-pixlab-prod-c4vrp5pjwt" }
+        { $_ -in @("production", "prod") }  { $KeyVaultName = "kv-pixlab-prod-c4vrp5pjw" }
     }
 }
 Write-Host "Key Vault Mapped for Environment: $KeyVaultName"

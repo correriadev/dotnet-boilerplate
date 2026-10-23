@@ -151,7 +151,7 @@ Run-Test "Injeção de Falha em 'az keyvault secret set' e Validação de Salvag
 
         # Bloco rigorosamente idêntico ao workflow de produção
         `$recRecord | ConvertTo-Json -Depth 5 | Set-Content -Path "$emergencyFile" -Encoding UTF8
-        az keyvault secret set --vault-name "kv-pixlab-prod-c4vrp5pjwt" --name "DeploymentState" --value (`$recRecord | ConvertTo-Json -Compress)
+        az keyvault secret set --vault-name "kv-pixlab-prod-c4vrp5pjw" --name "DeploymentState" --value (`$recRecord | ConvertTo-Json -Compress)
         if (`$LASTEXITCODE -ne 0) {
             Write-Error "CRITICAL_RECORD_FAILURE: Failed to persist incident in Key Vault (Exit `$LASTEXITCODE)! Local emergency evidence preserved at emergency-incident-reconciliation.json."
             exit 1
