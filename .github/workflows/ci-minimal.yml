@@ -1,4 +1,4 @@
-name: CI Minimal & HealthCheck
+name: CI Minimal & Validation
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
         run: dotnet test Pix.HealthCheck.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
   docker-validation:
-    name: Docker Build & Live Health Probe
+    name: Docker Build & Local Container Probe
     needs: build-and-test
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -49,83 +49,16 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
 
-      - name: Build Container Image
-        uses: docker/build-push-action@471d1dc4e07e5cdedd4c2171150001c434f0b7a4 # v6.15.0
-        with:
-          context: .
-          push: false
-          load: true
-          tags: pix-healthcheck:test
-
-      - name: Run Container & Test /health Probe
+      - name: Build Local Container Image
         run: |
-          docker run -d --name healthcheck-test -p 8080:8080 pix-healthcheck:test
+          docker build -t pix-healthcheck:local .
+
+      - name: Run Container Locally on Runner
+        run: |
+          docker run -d --name local-health-probe -p 8080:8080 pix-healthcheck:local
           sleep 5
-          curl -f -v http://localhost:8080/health || (docker logs healthcheck-test && exit 1)
-          docker stop healthcheck-test
-          docker rm healthcheck-test
 
-  deploy-azure:
-    name: Continuous Deployment to Azure Container Apps
-    needs: [build-and-test, docker-validation]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-      - name: Log in to Azure Container Registry
-        run: az acr login --name acrlabcorreadev
-
-      - name: Build and Push Docker Image to ACR
+      - name: Local Smoke Test (/health)
         run: |
-          echo "Building image tagged with commit SHA: ${{ github.sha }}..."
-          docker build -t acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }} -t acrlabcorreadev.azurecr.io/pix-healthcheck:latest .
-          docker push acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
-          docker push acrlabcorreadev.azurecr.io/pix-healthcheck:latest
-
-      - name: Deploy to Azure Container App
-        run: |
-          echo "Updating ingress target port to 8080..."
-          az containerapp ingress update \
-            --name "app-pix-worker" \
-            --resource-group "rg-lab-observabilidade" \
-            --target-port 8080
-
-          echo "Updating app-pix-worker with new image and Key Vault configuration..."
-          az containerapp update \
-            --name "app-pix-worker" \
-            --resource-group "rg-lab-observabilidade" \
-            --image "acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}" \
-            --set-env-vars "KeyVaultUri=https://kv-pixlab-dev-c4vrp5pjwt.vault.azure.net/" "ManagedIdentityClientId=b38f8d46-3da7-4616-8b25-d02fd05dde60"
-
-      - name: Live Smoke Test (/health on Azure)
-        run: |
-          echo "Aguardando nova revisão estabilizar no Azure Container Apps..."
-          sleep 20
-          URL="https://app-pix-worker.greenbay-2b95714e.eastus.azurecontainerapps.io/health"
-          echo "Testando endpoint: $URL"
-          for i in {1..6}; do
-            echo "--- Tentativa $i de 6 ---"
-            HTTP_STATUS=$(curl -s -o /tmp/health_response.json -w "%{http_code}" "$URL")
-            echo "HTTP Status Code: $HTTP_STATUS"
-            if [ -f /tmp/health_response.json ]; then
-              echo "Corpo da resposta:"
-              cat /tmp/health_response.json
-              echo ""
-            fi
-            if [ "$HTTP_STATUS" -eq 200 ]; then
-              echo "SUCESSO: HealthCheck respondeu HTTP 200 OK na Azure com todos os serviços saudáveis!"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "ERRO: HealthCheck não retornou HTTP 200 OK dentro do tempo esperado! Status final: $HTTP_STATUS"
-          exit 1
-
+          curl -f http://localhost:8080/health || exit 1
+          docker stop local-health-probe && docker rm local-health-probe

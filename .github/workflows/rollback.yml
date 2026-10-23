@@ -1,0 +1,386 @@
+name: Rollback & Safe Reversion
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target Environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - development
+          - homologation
+          - production
+      target_revision:
+        description: 'Specific Revision Name to restore (leave empty for automatic previous stable)'
+        required: false
+        type: string
+      reason:
+        description: 'Operational justification for rollback'
+        required: true
+        type: string
+
+concurrency:
+  group: env-traffic-mutation-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  execute-rollback:
+    name: Execute Safeguarded Rollback
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Environment Mapping (Zero-Trust Isolation)
+        id: env_map
+        shell: pwsh
+        env:
+          INPUT_ENV: ${{ inputs.environment }}
+          CLIENT_ID_DEV: ${{ secrets.AZURE_CLIENT_ID_DEV }}
+          SUB_ID_DEV: ${{ secrets.AZURE_SUBSCRIPTION_ID_DEV }}
+          CLIENT_ID_HML: ${{ secrets.AZURE_CLIENT_ID_HML }}
+          SUB_ID_HML: ${{ secrets.AZURE_SUBSCRIPTION_ID_HML }}
+          CLIENT_ID_PROD: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+          SUB_ID_PROD: ${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}
+        run: |
+          switch ($env:INPUT_ENV.ToLowerInvariant()) {
+            "development" {
+              echo "CLIENT_ID=$env:CLIENT_ID_DEV" >> $env:GITHUB_OUTPUT
+              echo "SUB_ID=$env:SUB_ID_DEV" >> $env:GITHUB_OUTPUT
+              echo "APP_NAME=app-pix-worker-dev" >> $env:GITHUB_OUTPUT
+              echo "RG_NAME=rg-lab-observabilidade" >> $env:GITHUB_OUTPUT
+              echo "KV_NAME=kv-pixlab-dev-c4vrp5pjwt" >> $env:GITHUB_OUTPUT
+            }
+            "homologation" {
+              echo "CLIENT_ID=$env:CLIENT_ID_HML" >> $env:GITHUB_OUTPUT
+              echo "SUB_ID=$env:SUB_ID_HML" >> $env:GITHUB_OUTPUT
+              echo "APP_NAME=app-pix-worker-hml" >> $env:GITHUB_OUTPUT
+              echo "RG_NAME=rg-lab-observabilidade" >> $env:GITHUB_OUTPUT
+              echo "KV_NAME=kv-pixlab-hml-c4vrp5pjwt" >> $env:GITHUB_OUTPUT
+            }
+            "production" {
+              echo "CLIENT_ID=$env:CLIENT_ID_PROD" >> $env:GITHUB_OUTPUT
+              echo "SUB_ID=$env:SUB_ID_PROD" >> $env:GITHUB_OUTPUT
+              echo "APP_NAME=app-pix-worker-prod" >> $env:GITHUB_OUTPUT
+              echo "RG_NAME=rg-lab-observabilidade" >> $env:GITHUB_OUTPUT
+              echo "KV_NAME=kv-pixlab-prod-c4vrp5pjwt" >> $env:GITHUB_OUTPUT
+            }
+            default {
+              Write-Error "Invalid environment: $env:INPUT_ENV"
+              exit 1
+            }
+          }
+
+      - name: Azure Login via Federated OIDC
+        uses: azure/login@a65d910e8caf856f8037a9dd4d823994a5061266 # v2.2.0
+        with:
+          client-id: ${{ steps.env_map.outputs.CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ steps.env_map.outputs.SUB_ID }}
+
+      - name: Resolve Target and Current Revisions Deterministically
+        id: resolve_revisions
+        shell: pwsh
+        env:
+          INPUT_TARGET: ${{ inputs.target_revision }}
+          APP_NAME: ${{ steps.env_map.outputs.APP_NAME }}
+          RG_NAME: ${{ steps.env_map.outputs.RG_NAME }}
+          KV_NAME: ${{ steps.env_map.outputs.KV_NAME }}
+        run: |
+          # Identifica revisão atual com tráfego
+          $trafficJson = az containerapp ingress traffic show --name "$env:APP_NAME" --resource-group "$env:RG_NAME" -o json 2>$null
+          $currentRev = ""
+          if ($trafficJson) {
+            $trafficList = $trafficJson | ConvertFrom-Json
+            $currentRev = ($trafficList | Where-Object { $_.weight -gt 0 } | Select-Object -First 1).revisionName
+          }
+          if (-not $currentRev) {
+            $currentRev = az containerapp revision list --name "$env:APP_NAME" --resource-group "$env:RG_NAME" --query "[?properties.active].name | [0]" -o tsv
+          }
+
+          $targetRev = $env:INPUT_TARGET
+          if ([string]::IsNullOrWhiteSpace($targetRev)) {
+            Write-Host "Target revision not provided. Querying Key Vault for persistent PriorStableRevision ($env:KV_NAME)..."
+            $kvTarget = az keyvault secret show --vault-name "$env:KV_NAME" --name "PriorStableRevision" --query "value" -o tsv 2>$null
+            if ($kvTarget -and $kvTarget -ne $currentRev) {
+              $targetRev = $kvTarget
+              Write-Host "Resolved durable prior stable revision from Key Vault: $targetRev"
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($targetRev)) {
+            Write-Host "Checking local repository registry for last stable revision..."
+            if (Test-Path "docs/pipeline/last-stable-revision.json") {
+              $lastStable = Get-Content -Path "docs/pipeline/last-stable-revision.json" -Raw | ConvertFrom-Json
+              if ($lastStable.lastStableRevision -and $lastStable.lastStableRevision -ne $currentRev) {
+                $targetRev = $lastStable.lastStableRevision
+                Write-Host "Found registered last stable revision in file: $targetRev"
+              }
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($targetRev)) {
+            Write-Error "CRITICAL: Could not resolve a valid verified prior stable revision for rollback! Automatic rollback aborted."
+            exit 1
+          }
+
+          # Validação estrita de existência e saúde da revisão alvo no Azure
+          Write-Host "Verifying target revision '$targetRev' exists and is active in Azure Container Apps..."
+          $isActive = az containerapp revision show --name "$env:APP_NAME" --resource-group "$env:RG_NAME" --revision "$targetRev" --query "properties.active" -o tsv 2>$null
+          if ($LASTEXITCODE -ne 0 -or $isActive -ne "true") {
+            Write-Error "CRITICAL: Target revision '$targetRev' is not in an active healthy state in Azure Container Apps (Active: $isActive)!"
+            exit 1
+          }
+
+          echo "CURRENT_REVISION=$currentRev" >> $env:GITHUB_OUTPUT
+          echo "TARGET_REVISION=$targetRev" >> $env:GITHUB_OUTPUT
+          Write-Host "Rollback Plan: Current=$currentRev -> Reverting To Target=$targetRev"
+
+      - name: Verify Schema Compatibility Prior to Rollback (PBI11 / Q03)
+        shell: pwsh
+        env:
+          TARGET_REV: ${{ steps.resolve_revisions.outputs.TARGET_REVISION }}
+          CURRENT_REV: ${{ steps.resolve_revisions.outputs.CURRENT_REVISION }}
+          ENV_NAME: ${{ inputs.environment }}
+          RG_NAME: ${{ steps.env_map.outputs.RG_NAME }}
+          KV_NAME: ${{ steps.env_map.outputs.KV_NAME }}
+          APP_NAME: ${{ steps.env_map.outputs.APP_NAME }}
+        run: |
+          ./scripts/ci/verify-schema-compatibility.ps1 `
+            -TargetRevision "$env:TARGET_REV" `
+            -CurrentRevision "$env:CURRENT_REV" `
+            -Environment "$env:ENV_NAME" `
+            -ContainerAppName "$env:APP_NAME" `
+            -ResourceGroupName "$env:RG_NAME" `
+            -KeyVaultName "$env:KV_NAME" `
+            -OutputFile "rollback-schema-report.json"
+
+      - name: Revert 100% Traffic Deterministically
+        shell: pwsh
+        env:
+          TARGET_REV: ${{ steps.resolve_revisions.outputs.TARGET_REVISION }}
+          CURRENT_REV: ${{ steps.resolve_revisions.outputs.CURRENT_REVISION }}
+          APP_NAME: ${{ steps.env_map.outputs.APP_NAME }}
+          RG_NAME: ${{ steps.env_map.outputs.RG_NAME }}
+          KV_NAME: ${{ steps.env_map.outputs.KV_NAME }}
+          ENV_NAME: ${{ inputs.environment }}
+        run: |
+          $targetRev = $env:TARGET_REV
+          $currentRev = $env:CURRENT_REV
+          Write-Host "Registering COMMUTING intent in Key Vault before rollback traffic switch..."
+          $intentRecord = [PSCustomObject]@{
+            phase               = "COMMUTING"
+            candidateRevision   = $targetRev
+            priorStableRevision = $currentRev
+            environment         = $env:ENV_NAME
+            timestamp           = [System.DateTimeOffset]::UtcNow.ToString("o")
+            reconciliationState = "MUTATION_IN_PROGRESS"
+          } | ConvertTo-Json -Compress
+
+          az keyvault secret set --vault-name "$env:KV_NAME" --name "DeploymentState" --value "$intentRecord"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "FAIL-CLOSED: Failed to register COMMUTING intent in Key Vault!"
+            exit 1
+          }
+
+          Write-Host "Switching 100% ingress traffic of $env:APP_NAME to $targetRev..."
+          az containerapp ingress traffic set `
+            --name "$env:APP_NAME" `
+            --resource-group "$env:RG_NAME" `
+            --revision-weight "$targetRev=100"
+
+          if ($LASTEXITCODE -ne 0) {
+            $failSetRecord = [PSCustomObject]@{
+              phase               = "ReconciliationRequired"
+              reason              = "ManualRollbackTrafficSetFailed"
+              activeRevision      = $targetRev
+              candidateRevision   = $currentRev
+              environment         = $env:ENV_NAME
+              timestamp           = [System.DateTimeOffset]::UtcNow.ToString("o")
+              reconciliationState = "INCIDENT_OPEN"
+            }
+            $failSetRecord | ConvertTo-Json -Depth 5 | Set-Content -Path "emergency-incident-reconciliation.json" -Encoding UTF8
+            az keyvault secret set --vault-name "$env:KV_NAME" --name "DeploymentState" --value ($failSetRecord | ConvertTo-Json -Compress)
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "CRITICAL_RECORD_FAILURE: Failed to persist incident in Key Vault (Exit $LASTEXITCODE)! Local emergency evidence preserved at emergency-incident-reconciliation.json."
+            }
+            Write-Error "FAIL-CLOSED: Failed to set traffic weight via Azure CLI. State recorded as ReconciliationRequired."
+            exit 1
+          }
+
+          Write-Host "Verifying Envoy traffic convergence in ACA (up to 30s)..."
+          $converged = $false
+          for ($attempt = 1; $attempt -le 6; $attempt++) {
+            $trafficJson = az containerapp ingress traffic show --name "$env:APP_NAME" --resource-group "$env:RG_NAME" -o json 2>$null
+            if ($trafficJson) {
+              $trafficList = $trafficJson | ConvertFrom-Json
+              $targetObj = $trafficList | Where-Object { $_.revisionName -eq $targetRev }
+              if ($targetObj -and $targetObj.weight -eq 100) {
+                Write-Host "[$attempt/6] 100% traffic weight confirmed on $targetRev."
+                $converged = $true
+                break
+              }
+            }
+            Start-Sleep -Seconds 5
+          }
+
+          if (-not $converged) {
+            $recRecord = [PSCustomObject]@{
+              phase               = "ReconciliationRequired"
+              reason              = "ManualRollbackConvergenceTimeout"
+              activeRevision      = $targetRev
+              candidateRevision   = $currentRev
+              environment         = $env:ENV_NAME
+              timestamp           = [System.DateTimeOffset]::UtcNow.ToString("o")
+              reconciliationState = "INCIDENT_OPEN"
+            }
+            $recRecord | ConvertTo-Json -Depth 5 | Set-Content -Path "emergency-incident-reconciliation.json" -Encoding UTF8
+            az keyvault secret set --vault-name "$env:KV_NAME" --name "DeploymentState" --value ($recRecord | ConvertTo-Json -Compress)
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "CRITICAL_RECORD_FAILURE: Failed to persist incident in Key Vault (Exit $LASTEXITCODE)! Local emergency evidence preserved at emergency-incident-reconciliation.json."
+            }
+            Write-Error "CRITICAL: Rollback traffic convergence failed! Target $targetRev weight is not 100%. State recorded as ReconciliationRequired."
+            exit 1
+          }
+
+      - name: Post-Rollback Deep Health Probe & State Synchronization
+        shell: pwsh
+        env:
+          APP_NAME: ${{ steps.env_map.outputs.APP_NAME }}
+          RG_NAME: ${{ steps.env_map.outputs.RG_NAME }}
+          KV_NAME: ${{ steps.env_map.outputs.KV_NAME }}
+          TARGET_REV: ${{ steps.resolve_revisions.outputs.TARGET_REVISION }}
+          CURRENT_REV: ${{ steps.resolve_revisions.outputs.CURRENT_REVISION }}
+          ENV_NAME: ${{ inputs.environment }}
+        run: |
+          $fqdn = az containerapp show --name "$env:APP_NAME" --resource-group "$env:RG_NAME" --query "properties.configuration.ingress.fqdn" -o tsv
+          $url = "https://$fqdn/health"
+          Write-Host "Verifying post-rollback health on $url..."
+          
+          $handler = [System.Net.Http.SocketsHttpHandler]::new()
+          $handler.AllowAutoRedirect = $false
+          $client = [System.Net.Http.HttpClient]::new($handler)
+          $client.Timeout = [System.TimeSpan]::FromSeconds(5)
+
+          $requiredDeps = @("azure_key_vault", "azure_sql", "azure_redis", "azure_service_bus")
+          $passed = $false
+          for ($i = 1; $i -le 6; $i++) {
+            try {
+              $resp = $client.GetAsync($url).GetAwaiter().GetResult()
+              $body = $resp.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+              if ([int]$resp.StatusCode -eq 200 -and -not [string]::IsNullOrWhiteSpace($body)) {
+                $json = $body | ConvertFrom-Json
+                if ($json.status -eq "Healthy" -and $json.entries) {
+                  $depsOk = $true
+                  foreach ($dep in $requiredDeps) {
+                    if (-not $json.entries.$dep -or $json.entries.$dep.status -ne "Healthy") {
+                      $depsOk = $false
+                      break
+                    }
+                  }
+                  if ($depsOk) {
+                    foreach ($prop in $json.entries.PSObject.Properties) {
+                      if (-not $prop.Value.status -or $prop.Value.status -ne "Healthy") {
+                        $depsOk = $false
+                        break
+                      }
+                    }
+                  }
+                  if ($depsOk) {
+                    Write-Host "HTTP 200 OK and Healthy status with all 4 dependencies confirmed after rollback."
+                    $passed = $true
+                    $resp.Dispose()
+                    break
+                  }
+                }
+              }
+              $resp.Dispose()
+            } catch {}
+            Start-Sleep -Seconds 10
+          }
+          $client.Dispose()
+          $handler.Dispose()
+
+          if (-not $passed) {
+            Write-Host "CRITICAL: Health check failed after rollback traffic switch!"
+            $degradedRecord = [PSCustomObject]@{
+              phase               = "ReconciliationRequired"
+              reason              = "HealthCheckFailedPostRollback"
+              activeRevision      = $env:TARGET_REV
+              priorStableRevision = $env:CURRENT_REV
+              environment         = $env:ENV_NAME
+              timestamp           = [System.DateTimeOffset]::UtcNow.ToString("o")
+              reconciliationState = "INCIDENT_OPEN"
+            }
+            $degradedRecord | ConvertTo-Json -Depth 5 | Set-Content -Path "emergency-incident-reconciliation.json" -Encoding UTF8
+            az keyvault secret set --vault-name "$env:KV_NAME" --name "DeploymentState" --value ($degradedRecord | ConvertTo-Json -Compress)
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "CRITICAL_RECORD_FAILURE: Failed to persist degraded state in Key Vault (Exit $LASTEXITCODE)! Local emergency evidence preserved at emergency-incident-reconciliation.json."
+            }
+            Write-Error "Health check failed after rollback traffic switch! Persisted state as ReconciliationRequired."
+            exit 1
+          }
+
+          # Sincroniza estado canônico no Key Vault com verificação individual estrita
+          $rollbackState = [PSCustomObject]@{
+            phase               = "ROLLED_BACK"
+            activeRevision      = $env:TARGET_REV
+            priorStableRevision = $env:CURRENT_REV
+            environment         = $env:ENV_NAME
+            timestamp           = [System.DateTimeOffset]::UtcNow.ToString("o")
+            reconciliationState = "CLEAN"
+          } | ConvertTo-Json -Compress
+
+          az keyvault secret set --vault-name "$env:KV_NAME" --name "DeploymentState" --value "$rollbackState"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "CRITICAL: Failed to persist DeploymentState in Key Vault during rollback!"
+            exit 1
+          }
+
+          az keyvault secret set --vault-name "$env:KV_NAME" --name "CurrentActiveRevision" --value "$env:TARGET_REV"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "CRITICAL: Failed to persist CurrentActiveRevision in Key Vault during rollback!"
+            exit 1
+          }
+
+      - name: Audit Rollback Execution Event
+        if: always()
+        shell: pwsh
+        env:
+          TARGET_REV: ${{ steps.resolve_revisions.outputs.TARGET_REVISION }}
+          CURRENT_REV: ${{ steps.resolve_revisions.outputs.CURRENT_REVISION }}
+          ENV_NAME: ${{ inputs.environment }}
+          REASON: ${{ inputs.reason }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          $audit = [PSCustomObject]@{
+            event           = "RollbackExecuted"
+            timestamp       = [System.DateTimeOffset]::UtcNow.ToString("o")
+            environment     = $env:ENV_NAME
+            currentRevision = $env:CURRENT_REV
+            targetRevision  = $env:TARGET_REV
+            requestedBy     = $env:ACTOR
+            reason          = $env:REASON
+          }
+          $audit | ConvertTo-Json -Depth 5 | Set-Content -Path "rollback-audit-event.json" -Encoding UTF8
+          Write-Host "Audit record saved to rollback-audit-event.json."
+
+      - name: Upload Rollback Audit Artifacts
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: rollback-audit-${{ inputs.environment }}
+          path: |
+            rollback-schema-report.json
+            rollback-audit-event.json
+            emergency-incident-reconciliation.json
+          if-no-files-found: ignore
+          retention-days: 90

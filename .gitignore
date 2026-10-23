@@ -75,3 +75,11 @@ Desktop.ini
 
 # Local Learning / Mentorship Logs (Do not push)
 .log/
+
+# Pipeline test outputs and transient artifacts
+*-report.json
+emergency-incident-reconciliation.json
+dev-approval-evidence.json
+hom-approval-evidence.json
+prd-approval-evidence.json
+rollback-audit-event.json

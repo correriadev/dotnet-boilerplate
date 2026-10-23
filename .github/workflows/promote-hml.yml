@@ -1,0 +1,336 @@
+name: Promote to Homologation (Quality Gate SLO)
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_run_id:
+        description: 'Release Run ID containing the sealed manifest'
+        required: true
+        type: string
+      dev_run_id:
+        description: 'DEV Deployment Run ID (optional; auto-resolved from commit if empty)'
+        required: false
+        type: string
+        default: ''
+
+concurrency:
+  group: env-traffic-mutation-homologation
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read
+
+jobs:
+  promote-homologation:
+    name: Homologation Quality Gate Verification
+    runs-on: ubuntu-latest
+    environment: homologation
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Cosign CLI (Mandatory for Signature Verification)
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Download Sealed Release Manifest
+        uses: actions/download-artifact@cc203385981b70ca67e1ab38864c36d129028f15 # v4.1.9
+        with:
+          name: release-manifest
+          path: artifacts/staging/release-manifest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.release_run_id }}
+
+      - name: Verify Manifest Integrity & Signature (PBI01 / PBI02)
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          ./scripts/ci/verify-manifest.ps1 `
+            -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
+            -Strict `
+            -VerifySignature `
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
+
+      - name: Resolve DEV Deployment Run ID
+        env:
+          INPUT_DEV_RUN_ID: ${{ inputs.dev_run_id }}
+          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $devRun = $env:INPUT_DEV_RUN_ID
+          if ($devRun -and $devRun -notmatch '^[0-9]+$') {
+            Write-Error "Invalid dev_run_id: must be numeric."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($devRun)) {
+            $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
+            $commitSha = $manifest.commitSha
+            Write-Host "Resolving successful deploy-dev run for commit $commitSha..."
+            $runs = gh run list --workflow deploy-dev.yml --commit $commitSha --status success --json databaseId -q ".[0].databaseId" 2>$null
+            if ($runs) {
+              $devRun = $runs.Trim()
+              Write-Host "Resolved DEV Run ID: $devRun"
+            } else {
+              Write-Error "CRITICAL: Could not resolve a successful deploy-dev run for commit $commitSha!"
+              exit 1
+            }
+          }
+          echo "DEV_RUN_ID=$devRun" >> $env:GITHUB_ENV
+
+      - name: Download Prior DEV Deployment Approval Evidence (PBI07)
+        uses: actions/download-artifact@cc203385981b70ca67e1ab38864c36d129028f15 # v4.1.9
+        with:
+          name: dev-evidence
+          path: artifacts/staging/dev-evidence
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ env.DEV_RUN_ID }}
+
+      - name: Validate DEV Gate Evidence (Fail-Closed)
+        env:
+          EXPECTED_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+        shell: pwsh
+        run: |
+          $devEvPath = "artifacts/staging/dev-evidence/dev-approval-evidence.json"
+          $manifestPath = "artifacts/staging/release-manifest/release-manifest.json"
+
+          if (-not (Test-Path $devEvPath)) {
+            Write-Error "CRITICAL: DEV deployment evidence is missing! Cannot promote unverified release to HOM."
+            exit 1
+          }
+          $devEv = Get-Content -Path $devEvPath -Raw | ConvertFrom-Json
+          $manifest = Get-Content -Path $manifestPath -Raw | ConvertFrom-Json
+          if ($devEv.status -ne "PASSED") {
+            Write-Error "CRITICAL: DEV deployment status was '$($devEv.status)' (expected PASSED). Promotion blocked."
+            exit 1
+          }
+          if ($devEv.releaseRunId -ne $env:EXPECTED_RELEASE_RUN_ID) {
+            Write-Error "CRITICAL: DEV evidence releaseRunId ($($devEv.releaseRunId)) does not match expected ($env:EXPECTED_RELEASE_RUN_ID)! Promotion blocked."
+            exit 1
+          }
+          $expectedImage = "$($manifest.services.api.image)@$($manifest.services.api.digest)"
+          if ($devEv.deployedImage -ne $expectedImage) {
+            Write-Error "CRITICAL: Digest mismatch between DEV evidence ($($devEv.deployedImage)) and Release Manifest ($expectedImage)! Promotion blocked."
+            exit 1
+          }
+          $expectedMigrator = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { $expectedImage }
+          if ($devEv.migratorImage -and $devEv.migratorImage -ne $expectedMigrator) {
+            Write-Error "CRITICAL: Migrator image mismatch between DEV evidence ($($devEv.migratorImage)) and Release Manifest ($expectedMigrator)! Promotion blocked."
+            exit 1
+          }
+          Write-Host "[OK] Verified DEV deployment success evidence, releaseRunId, and digests match: $expectedImage."
+
+      - name: Extract Immutable Image Digest
+        id: manifest_info
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
+          $digest = $manifest.services.api.digest
+          $image = $manifest.services.api.image
+          $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
+          echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
+          echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
+
+      - name: Azure Login via Federated OIDC (HOM Identity)
+        uses: azure/login@a65d910e8caf856f8037a9dd4d823994a5061266 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_HML }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_HML }}
+
+      - name: Execute Database Migration in HOM (Synchronous Job)
+        id: execute_migration
+        env:
+          MIGRATOR_IMAGE: ${{ steps.manifest_info.outputs.MIGRATOR_IMAGE }}
+        run: |
+          echo "Binding migration job to immutable release image: $MIGRATOR_IMAGE..."
+          az containerapp job update \
+            --name "job-db-migration-hml" \
+            --resource-group "rg-lab-observabilidade" \
+            --image "$MIGRATOR_IMAGE"
+
+          EXEC_NAME=$(az containerapp job start \
+            --name "job-db-migration-hml" \
+            --resource-group "rg-lab-observabilidade" \
+            --query "name" -o tsv)
+
+          if [ -z "$EXEC_NAME" ]; then
+            echo "CRITICAL: Failed to start HOM migration job or execution name empty!"
+            exit 1
+          fi
+
+          echo "MIGRATION_EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+          echo "HOM Migration execution started: $EXEC_NAME"
+
+          MAX_RETRIES=30
+          MIGRATION_SUCCEEDED=false
+
+          for ((i=1; i<=MAX_RETRIES; i++)); do
+            STATUS=$(az containerapp job execution show \
+              --name "job-db-migration-hml" \
+              --resource-group "rg-lab-observabilidade" \
+              --job-execution-name "$EXEC_NAME" \
+              --query "properties.status" -o tsv)
+            echo "[$i/$MAX_RETRIES] HOM Migration status: $STATUS"
+
+            if [ "$STATUS" == "Succeeded" ]; then
+              echo "HOM Migration completed successfully!"
+              EXEC_IMG=$(az containerapp job execution show \
+                --name "job-db-migration-hml" \
+                --resource-group "rg-lab-observabilidade" \
+                --job-execution-name "$EXEC_NAME" \
+                --query "properties.template.containers[0].image" -o tsv)
+              echo "Executed migration container image: $EXEC_IMG"
+              if [ "$EXEC_IMG" != "$MIGRATOR_IMAGE" ]; then
+                echo "CRITICAL: Executed migration image does not match manifest image $MIGRATOR_IMAGE!"
+                exit 1
+              fi
+              MIGRATION_SUCCEEDED=true
+              break
+            elif [ "$STATUS" == "Failed" ] || [ "$STATUS" == "Cancelled" ]; then
+              echo "CRITICAL: HOM Migration failed with status $STATUS!"
+              exit 1
+            fi
+            sleep 10
+          done
+
+          if [ "$MIGRATION_SUCCEEDED" != "true" ]; then
+            echo "CRITICAL: HOM Migration job timed out after 300 seconds without completion!"
+            exit 1
+          fi
+
+      - name: Stop Zombie HOM Migration Job on Interruption or Failure
+        if: always() && steps.execute_migration.outcome != 'success' && env.MIGRATION_EXEC_NAME != ''
+        shell: bash
+        env:
+          EXEC_NAME: ${{ env.MIGRATION_EXEC_NAME }}
+        run: |
+          echo "CRITICAL: HOM migration step was not successful! Actively stopping zombie execution: $EXEC_NAME..."
+          STOP_OUTPUT=$(az containerapp job stop \
+            --name "job-db-migration-hml" \
+            --resource-group "rg-lab-observabilidade" \
+            --job-execution-name "$EXEC_NAME" 2>&1) || true
+          echo "Stop command response: $STOP_OUTPUT"
+
+          echo "Confirming terminal status for execution $EXEC_NAME..."
+          TERMINAL_CONFIRMED=false
+          for ((j=1; j<=6; j++)); do
+            TERM_STATUS=$(az containerapp job execution show \
+              --name "job-db-migration-hml" \
+              --resource-group "rg-lab-observabilidade" \
+              --job-execution-name "$EXEC_NAME" \
+              --query "properties.status" -o tsv 2>/dev/null || echo "Unknown")
+            echo "Terminal check [$j/6]: $TERM_STATUS"
+            if [ "$TERM_STATUS" == "Stopped" ] || [ "$TERM_STATUS" == "Failed" ] || [ "$TERM_STATUS" == "Cancelled" ]; then
+              echo "HOM execution successfully confirmed in terminal stopped state: $TERM_STATUS"
+              TERMINAL_CONFIRMED=true
+              break
+            elif [ "$TERM_STATUS" == "Succeeded" ]; then
+              echo "WARNING: Execution finished Succeeded during stop sequence."
+              TERMINAL_CONFIRMED=true
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$TERMINAL_CONFIRMED" != "true" ]; then
+            echo "CRITICAL: Job execution $EXEC_NAME did not reach terminal state within 30s!"
+            exit 1
+          fi
+
+      - name: Deploy Container App to HOM
+        env:
+          FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
+        run: |
+          az containerapp update \
+            --name "app-pix-worker-hml" \
+            --resource-group "rg-lab-observabilidade" \
+            --image "$FULL_IMAGE"
+
+      - name: Deep Readiness Probe (HOM)
+        id: readiness_probe
+        shell: pwsh
+        run: |
+          $fqdn = az containerapp show `
+            --name "app-pix-worker-hml" `
+            --resource-group "rg-lab-observabilidade" `
+            --query "properties.configuration.ingress.fqdn" -o tsv
+          if (-not $fqdn) {
+            Write-Error "FAIL-CLOSED: Failed to resolve FQDN for app-pix-worker-hml via Azure CLI!"
+            exit 1
+          }
+          $url = "https://$fqdn/health"
+          echo "HOM_URL=$url" >> $env:GITHUB_OUTPUT
+          Write-Host "Probing HOM health on $url..."
+
+          $ready = $false
+          for ($i = 1; $i -le 12; $i++) {
+            try {
+              $resp = Invoke-WebRequest -Uri $url -TimeoutSec 10 -UseBasicParsing -ErrorAction SilentlyContinue
+              if ($resp.StatusCode -eq 200 -and -not [string]::IsNullOrWhiteSpace($resp.Content)) {
+                $json = $resp.Content | ConvertFrom-Json
+                if ($json.status -eq "Healthy") {
+                  Write-Host "HOM API is ready and healthy (HTTP 200, status Healthy)."
+                  $ready = $true
+                  break
+                }
+              }
+            } catch {}
+            Start-Sleep -Seconds 10
+          }
+          if (-not $ready) {
+            Write-Error "HOM Readiness probe failed after 120 seconds."
+            exit 1
+          }
+
+      - name: Execute Automated Quality Gate (SLOs & Fail-Closed)
+        shell: pwsh
+        env:
+          HOM_URL: ${{ steps.readiness_probe.outputs.HOM_URL }}
+        run: |
+          ./scripts/ci/evaluate-quality-gate.ps1 `
+            -TargetUrl "$env:HOM_URL" `
+            -ThresholdP95Ms 400 `
+            -ThresholdErrorRate 0.001 `
+            -MinRequests 1000 `
+            -DurationSeconds 300 `
+            -FailClosed `
+            -OutputFile "quality-gate-report.json"
+
+      - name: Record HOM Quality Gate Evidence Manifest
+        if: always()
+        env:
+          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          RUN_ID: ${{ github.run_id }}
+          FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
+          MIGRATOR_IMAGE: ${{ steps.manifest_info.outputs.MIGRATOR_IMAGE }}
+        shell: pwsh
+        run: |
+          if (Test-Path "quality-gate-report.json") {
+            $report = Get-Content -Path "quality-gate-report.json" -Raw | ConvertFrom-Json
+            $evidence = [PSCustomObject]@{
+              environment    = "homologation"
+              releaseRunId   = $env:INPUT_RELEASE_RUN_ID
+              hmlRunId       = $env:RUN_ID
+              imageDigest    = $env:FULL_IMAGE
+              migratorDigest = $env:MIGRATOR_IMAGE
+              verdict        = $report.Verdict
+              latencyP95     = $report.LatencyP95Ms
+              errorRate      = $report.ErrorRatePercentage
+              timestamp      = [System.DateTimeOffset]::UtcNow.ToString("o")
+            }
+            $evidence | ConvertTo-Json -Depth 5 | Set-Content -Path "hom-approval-evidence.json" -Encoding UTF8
+          }
+
+      - name: Upload Quality Gate Audit Artifact
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: quality-gate-hom-report
+          path: |
+            quality-gate-report.json
+            hom-approval-evidence.json
+          retention-days: 90

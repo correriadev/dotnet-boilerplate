@@ -1,0 +1,40 @@
+{
+  "version": "1.0.0",
+  "contract": "ExpandContractPolicy",
+  "compatibleRanges": {
+    "app-pix-worker-dev": {
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    },
+    "app-pix-worker-hml": {
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    },
+    "app-pix-worker-prod": {
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    }
+  },
+  "revisions": {
+    "app-pix-worker-prod--rel-10": {
+      "imageDigest": "sha256:29b359f13cfa0ff6ba6b71f3a55ec7ce71b0aa3280058b73f8e56ec568c04ec5",
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    },
+    "app-pix-worker-prod--rel-11": {
+      "imageDigest": "sha256:4a8b79e13cfb0ff6ba6b71f3a55ec7ce71b0aa3280058b73f8e56ec568c04ed6",
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    },
+    "app-pix-worker-dev--rel-10": {
+      "imageDigest": "sha256:29b359f13cfa0ff6ba6b71f3a55ec7ce71b0aa3280058b73f8e56ec568c04ec5",
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    },
+    "app-pix-worker-hml--rel-10": {
+      "imageDigest": "sha256:29b359f13cfa0ff6ba6b71f3a55ec7ce71b0aa3280058b73f8e56ec568c04ec5",
+      "minSupportedMigration": "20261001_InitialCreate",
+      "maxTestedMigration": "20261022_PixHealthCheck"
+    }
+  }
+}

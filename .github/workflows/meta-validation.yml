@@ -1,0 +1,113 @@
+name: Meta-Validation & Pipeline Security Lint
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/ci/**'
+      - 'docs/pipeline/**'
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/**'
+      - 'scripts/ci/**'
+      - 'docs/pipeline/**'
+  workflow_dispatch:
+
+concurrency:
+  group: meta-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint-and-shellcheck:
+    name: Actionlint & ShellCheck Workflow Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Actionlint (Pinned v1.7.4 with Cryptographic Checksum)
+        run: |
+          curl -sSLO https://github.com/rhysd/actionlint/releases/download/v1.7.4/actionlint_1.7.4_linux_amd64.tar.gz
+          echo "fc0a6886bbb9a23a39eeec4b176193cadb54ddbe77cdbb19b637933919545395  actionlint_1.7.4_linux_amd64.tar.gz" | sha256sum -c
+          tar -xzf actionlint_1.7.4_linux_amd64.tar.gz actionlint
+          chmod +x actionlint
+          ./actionlint -color
+
+  action-sha-pinning-check:
+    name: 'Inviolable Security: Strict 40-Char SHA Pinning Check'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Verify Strict SHA Pinning in all Workflows
+        shell: pwsh
+        run: |
+          $workflows = Get-ChildItem -Path .github/workflows -File | Where-Object { $_.Extension -in '.yml', '.yaml' }
+          $unpinnedActions = @()
+
+          foreach ($wf in $workflows) {
+              $lines = Get-Content -Path $wf.FullName
+              $lineNum = 0
+              foreach ($line in $lines) {
+                  $lineNum++
+                  if ($line -match '^\s*(-\s*)?uses:\s*["'']?([^"''\s#]+)["'']?') {
+                      $rawRef = $matches[2]
+                      if ($rawRef -match '^\.') { continue }
+                      if ($rawRef -match '^docker://') {
+                          if ($rawRef -notmatch '@sha256:[a-fA-F0-9]{64}$') {
+                              $unpinnedActions += "$($wf.Name):$lineNum -> $rawRef (Docker actions must be pinned by immutable sha256 digest)"
+                          }
+                          continue
+                      }
+                      if ($rawRef -notmatch '^[^@\s]+@[a-fA-F0-9]{40}$') {
+                          $unpinnedActions += "$($wf.Name):$lineNum -> $rawRef (Must be explicitly pinned by a 40-character commit SHA)"
+                      }
+                  }
+              }
+          }
+
+          if ($unpinnedActions.Count -gt 0) {
+              Write-Error "CRITICAL SECURITY VIOLATION: Unpinned actions detected:`n$($unpinnedActions -join "`n")"
+              exit 1
+          }
+          Write-Host "SUCCESS: All GitHub Actions across .yml and .yaml strictly pinned by 40-char commit SHA."
+
+  powershell-scripts-lint:
+    name: PSScriptAnalyzer & PowerShell Syntax Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Run Syntax and Parser Validation on Scripts
+        shell: pwsh
+        run: |
+          $scripts = Get-ChildItem -Path scripts/ci/*.ps1
+          $hasErrors = $false
+
+          foreach ($s in $scripts) {
+              Write-Host "Validating syntax for: $($s.Name)"
+              $tokens = $null
+              $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($s.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+              
+              if ($errors.Count -gt 0) {
+                  $hasErrors = $true
+                  Write-Error "Syntax error in $($s.Name): $($errors | Out-String)"
+              } else {
+                  Write-Host "[OK] $($s.Name) parsed cleanly."
+              }
+          }
+
+          if ($hasErrors) {
+              exit 1
+          }
+          Write-Host "SUCCESS: All CI PowerShell scripts validated successfully."
