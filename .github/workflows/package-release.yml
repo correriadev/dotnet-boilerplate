@@ -60,7 +60,7 @@ jobs:
       - name: Log in to Azure Container Registry
         run: az acr login --name acrlabcorreadev
 
-      - name: Build Local Container Image
+      - name: Build Local Container Images
         env:
           IMAGE_TAG: ${{ github.sha }}
           SEMVER_TAG: 1.${{ github.run_number }}.0
@@ -68,6 +68,10 @@ jobs:
           docker build \
             -t "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG" .
+          docker build \
+            -f Dockerfile.migrator \
+            -t "acrlabcorreadev.azurecr.io/pix-migrator:$IMAGE_TAG" \
+            -t "acrlabcorreadev.azurecr.io/pix-migrator:$SEMVER_TAG" .
 
       - name: Security Scan Container Image (Trivy)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
@@ -91,7 +95,14 @@ jobs:
           format: 'spdx-json'
           output-file: 'sbom-pix-healthcheck.spdx.json'
 
-      - name: Push Container Image to ACR
+      - name: Generate Migrator SBOM with Syft
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          image: acrlabcorreadev.azurecr.io/pix-migrator:${{ github.sha }}
+          format: 'spdx-json'
+          output-file: 'sbom-pix-migrator.spdx.json'
+
+      - name: Push Container Images to ACR
         id: push_image
         env:
           IMAGE_TAG: ${{ github.sha }}
@@ -101,17 +112,25 @@ jobs:
           docker push "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG"
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG" | cut -d'@' -f2)
           echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_OUTPUT"
+
+          docker push "acrlabcorreadev.azurecr.io/pix-migrator:$IMAGE_TAG"
+          docker push "acrlabcorreadev.azurecr.io/pix-migrator:$SEMVER_TAG"
+          MIGRATOR_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "acrlabcorreadev.azurecr.io/pix-migrator:$IMAGE_TAG" | cut -d'@' -f2)
+          echo "MIGRATOR_DIGEST=$MIGRATOR_DIGEST" >> "$GITHUB_OUTPUT"
+
           echo "SEMVER_TAG=$SEMVER_TAG" >> "$GITHUB_OUTPUT"
-          echo "Published image with immutable digest: $DIGEST and SemVer tag: $SEMVER_TAG"
+          echo "Published API digest: $DIGEST | Migrator digest: $MIGRATOR_DIGEST | SemVer tag: $SEMVER_TAG"
 
       - name: Install Cosign CLI
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
-      - name: Cryptographically Sign Container Image (Keyless OIDC)
+      - name: Cryptographically Sign Container Images (Keyless OIDC)
         env:
           IMAGE_DIGEST: ${{ steps.push_image.outputs.IMAGE_DIGEST }}
+          MIGRATOR_DIGEST: ${{ steps.push_image.outputs.MIGRATOR_DIGEST }}
         run: |
           cosign sign --yes "acrlabcorreadev.azurecr.io/pix-healthcheck@$IMAGE_DIGEST"
+          cosign sign --yes "acrlabcorreadev.azurecr.io/pix-migrator@$MIGRATOR_DIGEST"
 
       - name: Generate Sealed Release Manifest
         id: generate_manifest
@@ -121,6 +140,7 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
           IMAGE_DIGEST: ${{ steps.push_image.outputs.IMAGE_DIGEST }}
+          MIGRATOR_DIGEST: ${{ steps.push_image.outputs.MIGRATOR_DIGEST }}
           SEMVER_TAG: 1.${{ github.run_number }}.0
         run: |
           $timestamp = [System.DateTimeOffset]::UtcNow.ToString("o")
@@ -133,10 +153,10 @@ jobs:
               sbom   = "sbom-pix-healthcheck.spdx.json"
             }
             migrator = [PSCustomObject]@{
-              image  = "acrlabcorreadev.azurecr.io/pix-healthcheck"
+              image  = "acrlabcorreadev.azurecr.io/pix-migrator"
               tag    = $semver
-              digest = $env:IMAGE_DIGEST
-              sbom   = "sbom-pix-healthcheck.spdx.json"
+              digest = $env:MIGRATOR_DIGEST
+              sbom   = "sbom-pix-migrator.spdx.json"
             }
           }
           $servicesJson = $servicesObj | ConvertTo-Json -Compress -Depth 10
@@ -174,4 +194,5 @@ jobs:
             release-manifest.json
             release-manifest.json.bundle
             sbom-pix-healthcheck.spdx.json
+            sbom-pix-migrator.spdx.json
           retention-days: 90

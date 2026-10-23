@@ -1,0 +1,14 @@
+IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'PixTransactions')
+BEGIN
+    CREATE TABLE PixTransactions (
+        Id UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
+        EndToEndId NVARCHAR(50) NOT NULL,
+        Amount DECIMAL(18,2) NOT NULL,
+        Status NVARCHAR(20) NOT NULL DEFAULT 'PENDING',
+        CreatedAt DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET(),
+        UpdatedAt DATETIMEOFFSET NOT NULL DEFAULT SYSDATETIMEOFFSET()
+    );
+
+    CREATE NONCLUSTERED INDEX IX_PixTransactions_EndToEndId ON PixTransactions (EndToEndId);
+    CREATE NONCLUSTERED INDEX IX_PixTransactions_Status ON PixTransactions (Status);
+END

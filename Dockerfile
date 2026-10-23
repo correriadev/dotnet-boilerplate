@@ -4,7 +4,9 @@ WORKDIR /app
 
 COPY Pix.HealthCheck.sln ./
 COPY src/Pix.HealthCheck.Api/Pix.HealthCheck.Api.csproj src/Pix.HealthCheck.Api/
+COPY src/Pix.HealthCheck.Migrator/Pix.HealthCheck.Migrator.csproj src/Pix.HealthCheck.Migrator/
 COPY tests/Pix.HealthCheck.Api.Tests/Pix.HealthCheck.Api.Tests.csproj tests/Pix.HealthCheck.Api.Tests/
+COPY tests/Pix.HealthCheck.Migrator.Tests/Pix.HealthCheck.Migrator.Tests.csproj tests/Pix.HealthCheck.Migrator.Tests/
 RUN dotnet restore
 
 COPY . .
