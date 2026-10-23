@@ -77,6 +77,7 @@ Desktop.ini
 .log/
 
 # Pipeline test outputs and transient artifacts
+tests/temp/
 *-report.json
 emergency-incident-reconciliation.json
 dev-approval-evidence.json
