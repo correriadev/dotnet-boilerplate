@@ -36,7 +36,7 @@ jobs:
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Download Sealed Release Manifest
-        uses: actions/download-artifact@cc203385981b70ca67e1ab38864c36d129028f15 # v4.1.9
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           name: release-manifest
           path: artifacts/staging/release-manifest
@@ -82,7 +82,7 @@ jobs:
           echo "HML_RUN_ID=$hmlRun" >> $env:GITHUB_ENV
 
       - name: Download HOM Quality Gate Audit Evidence (PBI07)
-        uses: actions/download-artifact@cc203385981b70ca67e1ab38864c36d129028f15 # v4.1.9
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           name: quality-gate-hom-report
           path: artifacts/staging/quality-gate-hom-report
