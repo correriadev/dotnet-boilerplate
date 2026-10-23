@@ -178,7 +178,12 @@ jobs:
           if ($trafficJson) {
             $trafficList = $trafficJson | ConvertFrom-Json
             $stable = $trafficList | Where-Object { $_.weight -ge 50 } | Select-Object -First 1
-            if ($stable) { $activeTrafficRev = $stable.revisionName }
+            if ($stable) { 
+              $activeTrafficRev = $stable.revisionName 
+              if (-not $activeTrafficRev -and $stable.latestRevision -eq $true) {
+                $activeTrafficRev = az containerapp show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" --query "properties.latestRevisionName" -o tsv 2>$null
+              }
+            }
           }
 
           # Se a revisão ativa coincidir com a candidata (retry de tentativa que comutou tráfego antes de falhar),

@@ -134,14 +134,27 @@ jobs:
           }
 
           $trafficList = $trafficJson | ConvertFrom-Json
-          $stableItem = $trafficList | Where-Object { $_.weight -ge 50 -and $_.revisionName -ne $candidateName } | Select-Object -First 1
+          $stableItem = $trafficList | Where-Object { $_.weight -ge 50 -and ($_.revisionName -ne $candidateName) } | Select-Object -First 1
           if (-not $stableItem) {
             Write-Error "FAIL-CLOSED: No revision currently holds majority traffic (weight >= 50%) distinct from candidate '$candidateName'!"
             exit 1
           }
 
           $targetStable = $stableItem.revisionName
-          echo "STABLE_REVISION=$targetStable" >> $env:GITHUB_OUTPUT
+          if (-not $targetStable -or [string]::IsNullOrWhiteSpace($targetStable)) {
+            if ($stableItem.latestRevision -eq $true) {
+              $targetStable = az containerapp show --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" --query "properties.latestRevisionName" -o tsv 2>$null
+            }
+          }
+          if (-not $targetStable -or [string]::IsNullOrWhiteSpace($targetStable)) {
+            $targetStable = az containerapp revision list --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" --query "[?properties.active && name != '$candidateName'].name | [0]" -o tsv 2>$null
+          }
+          if (-not $targetStable -or [string]::IsNullOrWhiteSpace($targetStable)) {
+            Write-Error "FAIL-CLOSED: Could not resolve a verified prior stable revision name distinct from candidate '$candidateName'!"
+            exit 1
+          }
+
+          echo "STABLE_REVISION=$targetStable" >> "$env:GITHUB_OUTPUT"
           Write-Host "Prior stable revision verified and locked for baseline: $targetStable"
 
           # 4. Bloqueia 100% de tráfego na revisão estável antes da migração
