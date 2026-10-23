@@ -1,5 +1,6 @@
 # Stage 1: Build & Test
 FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS build
+ARG VERSION=0.0.0
 WORKDIR /app
 
 COPY Pix.HealthCheck.sln ./
@@ -10,10 +11,10 @@ COPY tests/Pix.HealthCheck.Migrator.Tests/Pix.HealthCheck.Migrator.Tests.csproj 
 RUN dotnet restore
 
 COPY . .
-RUN dotnet build -c Release --no-restore
+RUN dotnet build -c Release --no-restore -p:Version=$VERSION
 RUN dotnet test -c Release --no-build
 
-RUN dotnet publish src/Pix.HealthCheck.Api/Pix.HealthCheck.Api.csproj -c Release -o /app/publish --no-restore
+RUN dotnet publish src/Pix.HealthCheck.Api/Pix.HealthCheck.Api.csproj -c Release -o /app/publish --no-restore -p:Version=$VERSION
 
 # Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine AS runtime

@@ -66,10 +66,12 @@ jobs:
           SEMVER_TAG: 1.${{ github.run_number }}.0
         run: |
           docker build \
+            --build-arg VERSION="$SEMVER_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG" .
           docker build \
             -f Dockerfile.migrator \
+            --build-arg VERSION="$SEMVER_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-migrator:$IMAGE_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-migrator:$SEMVER_TAG" .
 

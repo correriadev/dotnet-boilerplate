@@ -112,13 +112,18 @@ app.MapGet("/health", async (HealthCheckService healthCheckService, IHostEnviron
         }
     );
 
+    var assemblyVersion = typeof(Program).Assembly.GetName().Version;
+    var appVersion = assemblyVersion != null
+        ? (assemblyVersion.Build >= 0 ? $"{assemblyVersion.Major}.{assemblyVersion.Minor}.{assemblyVersion.Build}" : $"{assemblyVersion.Major}.{assemblyVersion.Minor}.0")
+        : "0.0.0";
+
     var response = new
     {
         status = report.Status.ToString(),
         totalDuration = report.TotalDuration.ToString(),
         timestamp = DateTimeOffset.UtcNow,
         environment = env.EnvironmentName,
-        version = "1.0.0",
+        version = appVersion,
         servicesCheckedCount = report.Entries.Count,
         entries = entriesDict
     };

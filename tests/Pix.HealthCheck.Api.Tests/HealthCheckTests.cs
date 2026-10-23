@@ -28,7 +28,7 @@ public class HealthCheckTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.True(content.TryGetProperty("status", out var statusProperty));
         Assert.Equal("Healthy", statusProperty.GetString());
         Assert.True(content.TryGetProperty("version", out var versionProperty));
-        Assert.Equal("1.0.0", versionProperty.GetString());
+        Assert.Matches(@"^\d+\.\d+\.\d+", versionProperty.GetString());
     }
 }
 
