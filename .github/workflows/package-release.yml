@@ -70,7 +70,7 @@ jobs:
             -t "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG" .
 
       - name: Security Scan Container Image (Trivy)
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947b394f2dd8c87dbb0 # 0.29.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
           format: 'sarif'
