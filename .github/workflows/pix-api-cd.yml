@@ -1,6 +1,6 @@
-name: Pix API | Continuous Delivery
+﻿name: Pix API | Continuous Delivery
 
-run-name: Release ${{ github.ref_name }} · ${{ github.sha }}
+run-name: Release ${{ github.ref_name }} Â· ${{ github.sha }}
 
 on:
   push:
@@ -203,22 +203,27 @@ jobs:
             sbom-pix-migrator.spdx.json
           retention-days: 90
 
-      - name: Create and Push Git Tag
+      - name: Create and Push Git Tag (GMUD/CAB Audit)
         shell: bash
         env:
           SEMVER_TAG: ${{ steps.push_image.outputs.SEMVER_TAG }}
         run: |
           TAG_NAME="v${SEMVER_TAG}"
-          echo "Creating Git tag $TAG_NAME..."
+          echo "Checking Git tag $TAG_NAME..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Tag $TAG_NAME already exists locally."
+            EXISTING_COMMIT=$(git rev-parse "$TAG_NAME^{commit}")
+            if [ "$EXISTING_COMMIT" != "$GITHUB_SHA" ]; then
+              echo "CRITICAL: Git tag $TAG_NAME already points to a different commit ($EXISTING_COMMIT)! Refusing to overwrite."
+              exit 1
+            fi
+            echo "Git tag $TAG_NAME already exists and matches current commit."
           else
             git tag -a "$TAG_NAME" -m "Release $TAG_NAME (Run #${{ github.run_number }})"
-            git push origin "$TAG_NAME" || echo "Tag already pushed to origin."
+            git push origin "$TAG_NAME"
           fi
-          echo "Git tag $TAG_NAME ready."
+          echo "Git tag $TAG_NAME verified for GMUD audit."
 
   deploy-development:
     name: Continuous Deployment (DEV)
@@ -249,7 +254,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
 
       - name: Extract Immutable Image Digest
         id: manifest_info
@@ -281,7 +286,7 @@ jobs:
           RUN_NUMBER: ${{ github.run_number }}
         run: |
           Write-Host "Enforcing Multiple revision mode and capturing pre-migration stable baseline..."
-          # 1. Garante modo de múltiplas revisões
+          # 1. Garante modo de mÃºltiplas revisÃµes
           $revMode = az containerapp show --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" --query "properties.configuration.activeRevisionsMode" -o tsv 2>$null
           if ($revMode -ne "Multiple" -and $revMode -ne "multiple") {
             Write-Host "Setting activeRevisionsMode to Multiple..."
@@ -292,7 +297,7 @@ jobs:
             }
           }
 
-          # 2. Listagem de revisões existentes com Fail-Closed estrito para Cold Start
+          # 2. Listagem de revisÃµes existentes com Fail-Closed estrito para Cold Start
           $revisionsJson = az containerapp revision list --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" -o json 2>$null
           if ($LASTEXITCODE -ne 0 -or -not $revisionsJson) {
             Write-Error "FAIL-CLOSED: Failed to list revisions for app-pix-worker-dev via Azure CLI!"
@@ -324,7 +329,7 @@ jobs:
           $candidateName = "app-pix-worker-dev--$candidateSuffix"
           echo "IS_COLD_START=false" >> $env:GITHUB_OUTPUT
 
-          # 3. Identifica a revisão estável atual que atende tráfego (com Fail-Closed estrito)
+          # 3. Identifica a revisÃ£o estÃ¡vel atual que atende trÃ¡fego (com Fail-Closed estrito)
           $trafficJson = az containerapp ingress traffic show --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" -o json 2>$null
           if ($LASTEXITCODE -ne 0 -or -not $trafficJson) {
             Write-Error "FAIL-CLOSED: Failed to retrieve active traffic configuration via Azure CLI!"
@@ -355,7 +360,7 @@ jobs:
           echo "STABLE_REVISION=$targetStable" >> "$env:GITHUB_OUTPUT"
           Write-Host "Prior stable revision verified and locked for baseline: $targetStable"
 
-          # 4. Bloqueia 100% de tráfego na revisão estável antes da migração
+          # 4. Bloqueia 100% de trÃ¡fego na revisÃ£o estÃ¡vel antes da migraÃ§Ã£o
           az containerapp ingress traffic set `
             --name "app-pix-worker-dev" `
             --resource-group "rg-lab-observabilidade" `
@@ -366,7 +371,7 @@ jobs:
             exit 1
           }
 
-          # 4.1 Confirma convergência de lock a 100%
+          # 4.1 Confirma convergÃªncia de lock a 100%
           $confirmTrafficJson = az containerapp ingress traffic show --name "app-pix-worker-dev" --resource-group "rg-lab-observabilidade" -o json 2>$null
           $confirmTraffic = if ($confirmTrafficJson) { $confirmTrafficJson | ConvertFrom-Json } else { @() }
           $confirmedItem = $confirmTraffic | Where-Object { $_.revisionName -eq $targetStable -and $_.weight -eq 100 }
@@ -855,7 +860,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
 
       - name: Download Prior DEV Deployment Approval Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
@@ -1139,7 +1144,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
 
       - name: Download HOM Quality Gate Audit Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
@@ -1220,14 +1225,14 @@ jobs:
         id: stable_rev
         shell: pwsh
         run: |
-          # 1. Garante que o Container App está operando em Multiple revision mode
+          # 1. Garante que o Container App estÃ¡ operando em Multiple revision mode
           $revMode = az containerapp show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" --query "properties.configuration.activeRevisionsMode" -o tsv 2>$null
           if ($revMode -ne "Multiple" -and $revMode -ne "multiple") {
             Write-Host "Enforcing Multiple revision mode on Container App..."
             az containerapp revision set-mode --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" --mode multiple
           }
 
-          # 2. Identifica a revisão estável atual que recebe tráfego e recupera histórico de segurança
+          # 2. Identifica a revisÃ£o estÃ¡vel atual que recebe trÃ¡fego e recupera histÃ³rico de seguranÃ§a
           $existingPrior = az keyvault secret show --vault-name "kv-pixlab-prod-c4vrp5pjw" --name "PriorStableRevision" --query "value" -o tsv 2>$null
           $candidateSuffix = "rel-${env:GITHUB_RUN_NUMBER}"
           $candidateName = "app-pix-worker-prod--$candidateSuffix"
@@ -1245,8 +1250,8 @@ jobs:
             }
           }
 
-          # Se a revisão ativa coincidir com a candidata (retry de tentativa que comutou tráfego antes de falhar),
-          # recupera a $existingPrior do Key Vault para NUNCA usar a própria candidata como alvo de rollback!
+          # Se a revisÃ£o ativa coincidir com a candidata (retry de tentativa que comutou trÃ¡fego antes de falhar),
+          # recupera a $existingPrior do Key Vault para NUNCA usar a prÃ³pria candidata como alvo de rollback!
           $targetStable = ""
           if ($activeTrafficRev -and $activeTrafficRev -ne $candidateName -and $activeTrafficRev -notmatch "^app-pix-worker-prod--$candidateSuffix$") {
             $targetStable = $activeTrafficRev
@@ -1278,7 +1283,7 @@ jobs:
             exit 1
           }
 
-          # Persiste estado da máquina de implantação: PREPARED
+          # Persiste estado da mÃ¡quina de implantaÃ§Ã£o: PREPARED
           $statePayload = [PSCustomObject]@{
             phase               = "PREPARED"
             candidateRevision   = $candidateName
@@ -1595,7 +1600,7 @@ jobs:
             timestamp        = [System.DateTimeOffset]::UtcNow.ToString("o")
           }
           $evidence | ConvertTo-Json -Depth 5 | Set-Content -Path "prd-approval-evidence.json" -Encoding UTF8
-          # Salva registro da última revisão estável
+          # Salva registro da Ãºltima revisÃ£o estÃ¡vel
           $lastStable = [PSCustomObject]@{
             lastStableRevision = $env:CANDIDATE_REV
             timestamp          = [System.DateTimeOffset]::UtcNow.ToString("o")
@@ -1624,7 +1629,7 @@ jobs:
             exit 1
           }
 
-          # Inspeciona tráfego real no Azure Container Apps
+          # Inspeciona trÃ¡fego real no Azure Container Apps
           $trafficJson = az containerapp ingress traffic show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" -o json 2>$null
           $trafficList = if ($trafficJson) { $trafficJson | ConvertFrom-Json } else { @() }
           $canaryObj = $trafficList | Where-Object { $_.revisionName -eq $canaryRev }
@@ -1712,7 +1717,7 @@ jobs:
               exit 1
             }
 
-            # Confirma convergência de tráfego de 100%
+            # Confirma convergÃªncia de trÃ¡fego de 100%
             $trafficJson = az containerapp ingress traffic show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" -o json 2>$null
             $trafficList = if ($trafficJson) { $trafficJson | ConvertFrom-Json } else { @() }
             $reverted = $trafficList | Where-Object { $_.revisionName -eq $stableRev }
@@ -1735,7 +1740,7 @@ jobs:
               exit 1
             }
 
-            # Sonda de integridade profunda pós-reversão (Sem redirect e validando as 4 dependências)
+            # Sonda de integridade profunda pÃ³s-reversÃ£o (Sem redirect e validando as 4 dependÃªncias)
             $fqdn = az containerapp show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" --query "properties.configuration.ingress.fqdn" -o tsv
             $url = "https://$fqdn/health"
             Write-Host "Verifying health probe on reverted revision: $url..."
@@ -1802,7 +1807,7 @@ jobs:
               exit 1
             }
 
-            # Registra estado ROLLED_BACK canônico no Key Vault com checagem atômica individual
+            # Registra estado ROLLED_BACK canÃ´nico no Key Vault com checagem atÃ´mica individual
             $rollbackState = [PSCustomObject]@{
               phase               = "ROLLED_BACK"
               activeRevision      = $stableRev
@@ -1836,7 +1841,7 @@ jobs:
             $deactOk = ($deactExit -eq 0 -and $showExit -eq 0 -and $deactActive -eq "false")
             Write-Host "Candidate deactivation confirmed: active=$deactActive (Ok=$deactOk, deactExit=$deactExit, showExit=$showExit)"
 
-            # Avalia e confirma estado real de tráfego e atividade da revisão estável após isolar a candidata
+            # Avalia e confirma estado real de trÃ¡fego e atividade da revisÃ£o estÃ¡vel apÃ³s isolar a candidata
             $stableActiveQuery = az containerapp revision show --name "app-pix-worker-prod" --resource-group "rg-lab-observabilidade" --revision "$stableRev" --query "properties.active" -o tsv 2>$null
             $stableActiveExit = $LASTEXITCODE
             $stableActiveStatus = if ($stableActiveExit -eq 0 -and $stableActiveQuery -eq "true") {
@@ -1903,3 +1908,4 @@ jobs:
           path: emergency-incident-reconciliation.json
           if-no-files-found: ignore
           retention-days: 90
+
