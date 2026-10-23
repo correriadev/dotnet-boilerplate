@@ -38,3 +38,4 @@ public class MigratorRunnerTests
         Assert.Equal(1, exitCode);
     }
 }
+

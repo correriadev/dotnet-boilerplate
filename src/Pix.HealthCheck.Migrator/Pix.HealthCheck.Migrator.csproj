@@ -18,3 +18,4 @@
     <EmbeddedResource Include="Scripts\*.sql" />
   </ItemGroup>
 </Project>
+

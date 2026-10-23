@@ -22,3 +22,4 @@ ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
 WORKDIR /app
 COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Pix.HealthCheck.Migrator.dll"]
+

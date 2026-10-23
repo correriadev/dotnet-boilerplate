@@ -21,3 +21,4 @@
     <ProjectReference Include="..\..\src\Pix.HealthCheck.Migrator\Pix.HealthCheck.Migrator.csproj" />
   </ItemGroup>
 </Project>
+

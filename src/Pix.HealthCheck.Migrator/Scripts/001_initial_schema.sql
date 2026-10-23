@@ -12,3 +12,4 @@ BEGIN
     CREATE NONCLUSTERED INDEX IX_PixTransactions_EndToEndId ON PixTransactions (EndToEndId);
     CREATE NONCLUSTERED INDEX IX_PixTransactions_Status ON PixTransactions (Status);
 END
+

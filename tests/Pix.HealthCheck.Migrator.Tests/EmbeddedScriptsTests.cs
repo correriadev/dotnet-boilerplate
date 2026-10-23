@@ -41,3 +41,4 @@ public class EmbeddedScriptsTests
         Assert.Contains("PixTransactions", sqlContent, StringComparison.OrdinalIgnoreCase);
     }
 }
+
