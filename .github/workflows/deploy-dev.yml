@@ -1,9 +1,8 @@
-name: Deploy Continuous to DEV
+# [DEPRECATED] Este workflow foi unificado no pix-api-cd.yml.
+# Mantido apenas para execucoes manuais avulsas (workflow_dispatch).
+name: Deploy Continuous to DEV (Deprecated)
 
 on:
-  workflow_run:
-    workflows: ["Package & Release Immutability"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       release_run_id:

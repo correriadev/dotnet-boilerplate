@@ -1,8 +1,8 @@
-name: Package & Release Immutability
+# [DEPRECATED] Este workflow foi unificado no pix-api-cd.yml.
+# Mantido apenas para execucoes manuais avulsas (workflow_dispatch).
+name: Package & Release Immutability (Deprecated)
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 concurrency:

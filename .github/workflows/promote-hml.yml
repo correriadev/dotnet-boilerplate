@@ -1,9 +1,8 @@
-name: Promote to Homologation (Quality Gate SLO)
+# [DEPRECATED] Este workflow foi unificado no pix-api-cd.yml.
+# Mantido apenas para execucoes manuais avulsas (workflow_dispatch).
+name: Promote to Homologation (Quality Gate SLO) (Deprecated)
 
 on:
-  workflow_run:
-    workflows: ["Deploy Continuous to DEV"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       release_run_id:
