@@ -151,7 +151,7 @@ jobs:
           echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
 
       - name: Azure Login via Federated OIDC (PRD Identity)
-        uses: azure/login@a65d910e8caf856f8037a9dd4d823994a5061266 # v2.2.0
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID_PROD }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -252,7 +252,7 @@ jobs:
             exit 1
           fi
 
-          echo "MIGRATION_EXEC_NAME=$EXEC_NAME" >> $GITHUB_ENV
+          echo "MIGRATION_EXEC_NAME=$EXEC_NAME" >> "$GITHUB_ENV"
           echo "PRD Migration execution started: $EXEC_NAME"
 
           MAX_RETRIES=30
@@ -347,7 +347,7 @@ jobs:
             --termination-grace-period 90
 
           CANDIDATE_REV="app-pix-worker-prod--$REV_SUFFIX"
-          echo "CANDIDATE_REVISION=$CANDIDATE_REV" >> $GITHUB_OUTPUT
+          echo "CANDIDATE_REVISION=$CANDIDATE_REV" >> "$GITHUB_OUTPUT"
           echo "Candidate Revision Deployed with 0% initial traffic: $CANDIDATE_REV"
 
       - name: Apply Canary 90/10 Traffic Split & Verify Active State

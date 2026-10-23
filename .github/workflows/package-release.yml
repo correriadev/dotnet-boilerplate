@@ -48,7 +48,7 @@ jobs:
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Azure Login (Zero-Trust Federated OIDC)
-        uses: azure/login@a65d910e8caf856f8037a9dd4d823994a5061266 # v2.2.0
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -100,8 +100,8 @@ jobs:
           docker push "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG"
           docker push "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG"
           DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG" | cut -d'@' -f2)
-          echo "IMAGE_DIGEST=$DIGEST" >> $GITHUB_OUTPUT
-          echo "SEMVER_TAG=$SEMVER_TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_DIGEST=$DIGEST" >> "$GITHUB_OUTPUT"
+          echo "SEMVER_TAG=$SEMVER_TAG" >> "$GITHUB_OUTPUT"
           echo "Published image with immutable digest: $DIGEST and SemVer tag: $SEMVER_TAG"
 
       - name: Install Cosign CLI
