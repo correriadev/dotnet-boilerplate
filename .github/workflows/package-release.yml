@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
   packages: write
   security-events: write
@@ -198,3 +198,20 @@ jobs:
             sbom-pix-healthcheck.spdx.json
             sbom-pix-migrator.spdx.json
           retention-days: 90
+
+      - name: Create and Push Git Tag
+        shell: bash
+        env:
+          SEMVER_TAG: ${{ steps.push_image.outputs.SEMVER_TAG }}
+        run: |
+          TAG_NAME="v${SEMVER_TAG}"
+          echo "Creating Git tag $TAG_NAME..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Tag $TAG_NAME already exists locally."
+          else
+            git tag -a "$TAG_NAME" -m "Release $TAG_NAME (Run #${{ github.run_number }})"
+            git push origin "$TAG_NAME" || echo "Tag already pushed to origin."
+          fi
+          echo "Git tag $TAG_NAME ready."

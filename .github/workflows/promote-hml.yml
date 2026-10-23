@@ -1,12 +1,16 @@
 name: Promote to Homologation (Quality Gate SLO)
 
 on:
+  workflow_run:
+    workflows: ["Deploy Continuous to DEV"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       release_run_id:
-        description: 'Release Run ID containing the sealed manifest'
-        required: true
+        description: 'Release Run ID containing the sealed manifest (optional; auto-resolved if empty)'
+        required: false
         type: string
+        default: ''
       dev_run_id:
         description: 'DEV Deployment Run ID (optional; auto-resolved from commit if empty)'
         required: false
@@ -25,12 +29,59 @@ permissions:
 jobs:
   promote-homologation:
     name: Homologation Quality Gate Verification
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     environment: homologation
     timeout-minutes: 20
     steps:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Resolve Pipeline Runs
+        id: resolve_runs
+        env:
+          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          INPUT_DEV_RUN_ID: ${{ inputs.dev_run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: pwsh
+        run: |
+          $relRun = $env:INPUT_RELEASE_RUN_ID
+          if ($relRun -and $relRun -notmatch '^[0-9]+$') {
+            Write-Error "Invalid release_run_id: must be numeric."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($relRun)) {
+            Write-Host "Resolving successful package-release run for commit $env:COMMIT_SHA..."
+            $runs = gh run list --workflow package-release.yml --commit $env:COMMIT_SHA --status success --json databaseId -q ".[0].databaseId" 2>$null
+            if ($runs) {
+              $relRun = $runs.Trim()
+              Write-Host "Resolved Release Run ID: $relRun"
+            } else {
+              Write-Error "CRITICAL: Could not resolve a successful package-release run for commit $env:COMMIT_SHA!"
+              exit 1
+            }
+          }
+
+          $devRun = $env:INPUT_DEV_RUN_ID
+          if ($devRun -and $devRun -notmatch '^[0-9]+$') {
+            Write-Error "Invalid dev_run_id: must be numeric."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($devRun)) {
+            Write-Host "Resolving successful deploy-dev run for commit $env:COMMIT_SHA..."
+            $runs = gh run list --workflow deploy-dev.yml --commit $env:COMMIT_SHA --status success --json databaseId -q ".[0].databaseId" 2>$null
+            if ($runs) {
+              $devRun = $runs.Trim()
+              Write-Host "Resolved DEV Run ID: $devRun"
+            } else {
+              Write-Error "CRITICAL: Could not resolve a successful deploy-dev run for commit $env:COMMIT_SHA!"
+              exit 1
+            }
+          }
+
+          echo "release_run_id=$relRun" >> $env:GITHUB_OUTPUT
+          echo "dev_run_id=$devRun" >> $env:GITHUB_OUTPUT
 
       - name: Install Cosign CLI (Mandatory for Signature Verification)
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
@@ -41,7 +92,7 @@ jobs:
           name: release-manifest
           path: artifacts/staging/release-manifest
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.release_run_id }}
+          run-id: ${{ steps.resolve_runs.outputs.release_run_id }}
 
       - name: Verify Manifest Integrity & Signature (PBI01 / PBI02)
         env:
@@ -54,44 +105,17 @@ jobs:
             -VerifySignature `
             -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
 
-      - name: Resolve DEV Deployment Run ID
-        env:
-          INPUT_DEV_RUN_ID: ${{ inputs.dev_run_id }}
-          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          $devRun = $env:INPUT_DEV_RUN_ID
-          if ($devRun -and $devRun -notmatch '^[0-9]+$') {
-            Write-Error "Invalid dev_run_id: must be numeric."
-            exit 1
-          }
-          if ([string]::IsNullOrWhiteSpace($devRun)) {
-            $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
-            $commitSha = $manifest.commitSha
-            Write-Host "Resolving successful deploy-dev run for commit $commitSha..."
-            $runs = gh run list --workflow deploy-dev.yml --commit $commitSha --status success --json databaseId -q ".[0].databaseId" 2>$null
-            if ($runs) {
-              $devRun = $runs.Trim()
-              Write-Host "Resolved DEV Run ID: $devRun"
-            } else {
-              Write-Error "CRITICAL: Could not resolve a successful deploy-dev run for commit $commitSha!"
-              exit 1
-            }
-          }
-          echo "DEV_RUN_ID=$devRun" >> $env:GITHUB_ENV
-
       - name: Download Prior DEV Deployment Approval Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           name: dev-evidence
           path: artifacts/staging/dev-evidence
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ env.DEV_RUN_ID }}
+          run-id: ${{ steps.resolve_runs.outputs.dev_run_id }}
 
       - name: Validate DEV Gate Evidence (Fail-Closed)
         env:
-          EXPECTED_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          EXPECTED_RELEASE_RUN_ID: ${{ steps.resolve_runs.outputs.release_run_id }}
         shell: pwsh
         run: |
           $devEvPath = "artifacts/staging/dev-evidence/dev-approval-evidence.json"
@@ -303,7 +327,7 @@ jobs:
       - name: Record HOM Quality Gate Evidence Manifest
         if: always()
         env:
-          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          INPUT_RELEASE_RUN_ID: ${{ steps.resolve_runs.outputs.release_run_id }}
           RUN_ID: ${{ github.run_id }}
           FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
           MIGRATOR_IMAGE: ${{ steps.manifest_info.outputs.MIGRATOR_IMAGE }}

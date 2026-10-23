@@ -4,9 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       release_run_id:
-        description: 'Release Run ID containing the sealed manifest'
-        required: true
+        description: 'Release Run ID containing the sealed manifest (optional; auto-resolved if empty)'
+        required: false
         type: string
+        default: ''
       hml_run_id:
         description: 'HOM Promotion Run ID (optional; auto-resolved from commit if empty)'
         required: false
@@ -32,6 +33,52 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
+      - name: Resolve Pipeline Runs
+        id: resolve_runs
+        env:
+          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          INPUT_HML_RUN_ID: ${{ inputs.hml_run_id }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+        shell: pwsh
+        run: |
+          $relRun = $env:INPUT_RELEASE_RUN_ID
+          if ($relRun -and $relRun -notmatch '^[0-9]+$') {
+            Write-Error "Invalid release_run_id: must be numeric."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($relRun)) {
+            Write-Host "Resolving successful package-release run for commit $env:COMMIT_SHA..."
+            $runs = gh run list --workflow package-release.yml --commit $env:COMMIT_SHA --status success --json databaseId -q ".[0].databaseId" 2>$null
+            if ($runs) {
+              $relRun = $runs.Trim()
+              Write-Host "Resolved Release Run ID: $relRun"
+            } else {
+              Write-Error "CRITICAL: Could not resolve a successful package-release run for commit $env:COMMIT_SHA!"
+              exit 1
+            }
+          }
+
+          $hmlRun = $env:INPUT_HML_RUN_ID
+          if ($hmlRun -and $hmlRun -notmatch '^[0-9]+$') {
+            Write-Error "Invalid hml_run_id: must be numeric."
+            exit 1
+          }
+          if ([string]::IsNullOrWhiteSpace($hmlRun)) {
+            Write-Host "Resolving successful promote-hml run for commit $env:COMMIT_SHA..."
+            $runs = gh run list --workflow promote-hml.yml --commit $env:COMMIT_SHA --status success --json databaseId -q ".[0].databaseId" 2>$null
+            if ($runs) {
+              $hmlRun = $runs.Trim()
+              Write-Host "Resolved HOM Run ID: $hmlRun"
+            } else {
+              Write-Error "CRITICAL: Could not resolve a successful promote-hml run for commit $env:COMMIT_SHA!"
+              exit 1
+            }
+          }
+
+          echo "release_run_id=$relRun" >> $env:GITHUB_OUTPUT
+          echo "hml_run_id=$hmlRun" >> $env:GITHUB_OUTPUT
+
       - name: Install Cosign CLI (Mandatory for Signature Verification)
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
@@ -41,7 +88,7 @@ jobs:
           name: release-manifest
           path: artifacts/staging/release-manifest
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ inputs.release_run_id }}
+          run-id: ${{ steps.resolve_runs.outputs.release_run_id }}
 
       - name: Verify Manifest Integrity & Signature (PBI01 / PBI02)
         env:
@@ -54,44 +101,17 @@ jobs:
             -VerifySignature `
             -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release\.yml@refs/heads/main$"
 
-      - name: Resolve HOM Promotion Run ID
-        env:
-          INPUT_HML_RUN_ID: ${{ inputs.hml_run_id }}
-          INPUT_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        shell: pwsh
-        run: |
-          $hmlRun = $env:INPUT_HML_RUN_ID
-          if ($hmlRun -and $hmlRun -notmatch '^[0-9]+$') {
-            Write-Error "Invalid hml_run_id: must be numeric."
-            exit 1
-          }
-          if ([string]::IsNullOrWhiteSpace($hmlRun)) {
-            $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
-            $commitSha = $manifest.commitSha
-            Write-Host "Resolving successful promote-hml run for commit $commitSha..."
-            $runs = gh run list --workflow promote-hml.yml --commit $commitSha --status success --json databaseId -q ".[0].databaseId" 2>$null
-            if ($runs) {
-              $hmlRun = $runs.Trim()
-              Write-Host "Resolved HOM Run ID: $hmlRun"
-            } else {
-              Write-Error "CRITICAL: Could not resolve a successful promote-hml run for commit $commitSha!"
-              exit 1
-            }
-          }
-          echo "HML_RUN_ID=$hmlRun" >> $env:GITHUB_ENV
-
       - name: Download HOM Quality Gate Audit Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
         with:
           name: quality-gate-hom-report
           path: artifacts/staging/quality-gate-hom-report
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          run-id: ${{ env.HML_RUN_ID }}
+          run-id: ${{ steps.resolve_runs.outputs.hml_run_id }}
 
       - name: Validate HOM Quality Gate Report Evidence (Fail-Closed)
         env:
-          EXPECTED_RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          EXPECTED_RELEASE_RUN_ID: ${{ steps.resolve_runs.outputs.release_run_id }}
         shell: pwsh
         run: |
           $gateReportPath = "artifacts/staging/quality-gate-hom-report/quality-gate-report.json"
@@ -522,7 +542,7 @@ jobs:
       - name: Save Production Approval Evidence
         if: success()
         env:
-          RELEASE_RUN_ID: ${{ inputs.release_run_id }}
+          RELEASE_RUN_ID: ${{ steps.resolve_runs.outputs.release_run_id }}
           CANDIDATE_REV: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
           FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
         shell: pwsh
