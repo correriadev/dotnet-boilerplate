@@ -84,3 +84,6 @@ dev-approval-evidence.json
 hom-approval-evidence.json
 prd-approval-evidence.json
 rollback-audit-event.json
+
+# Superpowers / Brainstorming internal artifacts
+docs/superpowers/

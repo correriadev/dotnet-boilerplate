@@ -20,7 +20,7 @@ param (
     [switch]$VerifySignature = $false,
 
     [Parameter(Mandatory = $false)]
-    [string]$CertificateIdentityRegexp = "^https://github\.com/[^/]+/[^/]+/\.github/workflows/(package-release|pix-api-cd)\.yml@refs/heads/main$"
+    [string]$CertificateIdentityRegexp = "^https://github\.com/[^/]+/[^/]+/\.github/workflows/(package-release|pix-api-cd|package-release-deploy)\.yml@refs/heads/main$"
 )
 
 $ErrorActionPreference = "Stop"

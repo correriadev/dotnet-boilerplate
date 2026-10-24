@@ -1,4 +1,4 @@
-name: Pix API | Continuous Delivery
+name: Package, Release & Deployment Pipeline
 
 run-name: Release v1.${{ github.run_number }}.0
 
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: pix-api-continuous-delivery
+  group: package-release-deploy
   cancel-in-progress: false
 
 permissions:
@@ -42,11 +42,16 @@ jobs:
       - name: Execute Unit and Architecture Tests
         run: dotnet test Pix.HealthCheck.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
 
-  publish-release:
-    name: Security Scan, SBOM, Sign & Release Packaging
+  docker-packaging-and-tag:
+    name: Docker Packaging & Git Tag
     needs: [build-and-verify]
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      SEMVER_TAG: ${{ steps.create_tag.outputs.SEMVER_TAG }}
+      TAG_NAME: ${{ steps.create_tag.outputs.TAG_NAME }}
+      IMAGE_DIGEST: ${{ steps.push_image.outputs.IMAGE_DIGEST }}
+      MIGRATOR_DIGEST: ${{ steps.push_image.outputs.MIGRATOR_DIGEST }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -104,35 +109,6 @@ jobs:
             -t "acrlabcorreadev.azurecr.io/pix-migrator:$IMAGE_TAG" \
             -t "acrlabcorreadev.azurecr.io/pix-migrator:$SEMVER_TAG" .
 
-      - name: Security Scan Container Image (Trivy)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
-        with:
-          image-ref: acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '1'
-
-      - name: Upload Security Scan SARIF
-        if: always()
-        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-      - name: Generate Software Bill of Materials (SBOM) with Syft
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
-        with:
-          image: acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
-          format: 'spdx-json'
-          output-file: 'sbom-pix-healthcheck.spdx.json'
-
-      - name: Generate Migrator SBOM with Syft
-        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
-        with:
-          image: acrlabcorreadev.azurecr.io/pix-migrator:${{ github.sha }}
-          format: 'spdx-json'
-          output-file: 'sbom-pix-migrator.spdx.json'
-
       - name: Push Container Images to ACR
         id: push_image
         env:
@@ -152,13 +128,109 @@ jobs:
           echo "SEMVER_TAG=$SEMVER_TAG" >> "$GITHUB_OUTPUT"
           echo "Published API digest: $DIGEST | Migrator digest: $MIGRATOR_DIGEST | SemVer tag: $SEMVER_TAG"
 
+  security-scan-trivy:
+    name: Security Vulnerability Scan (Trivy)
+    needs: [docker-packaging-and-tag]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Azure Login (Zero-Trust Federated OIDC)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name acrlabcorreadev
+
+      - name: Security Scan Container Image (Trivy)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
+        with:
+          image-ref: acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+
+      - name: Upload Security Scan SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@b56ba49b26e50535fa1e7f7db0f4f7b4bf65d80d # v3.28.10
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  sbom-generation-syft:
+    name: SBOM Generation (Syft SPDX)
+    needs: [docker-packaging-and-tag]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Azure Login (Zero-Trust Federated OIDC)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name acrlabcorreadev
+
+      - name: Generate Software Bill of Materials (SBOM) with Syft
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          image: acrlabcorreadev.azurecr.io/pix-healthcheck:${{ github.sha }}
+          format: 'spdx-json'
+          output-file: 'sbom-pix-healthcheck.spdx.json'
+
+      - name: Generate Migrator SBOM with Syft
+        uses: anchore/sbom-action@f325610c9f50a54015d37c8d16cb3b0e2c8f4de0 # v0.18.0
+        with:
+          image: acrlabcorreadev.azurecr.io/pix-migrator:${{ github.sha }}
+          format: 'spdx-json'
+          output-file: 'sbom-pix-migrator.spdx.json'
+
+      - name: Upload Generated SBOM Artifacts
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: release-sboms
+          path: |
+            sbom-pix-healthcheck.spdx.json
+            sbom-pix-migrator.spdx.json
+          retention-days: 90
+
+  sign-and-seal-release:
+    name: Cosign Signing & Sealed Manifest
+    needs: [security-scan-trivy, sbom-generation-syft]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
+      MIGRATOR_IMAGE: ${{ steps.manifest_info.outputs.MIGRATOR_IMAGE }}
+      COMMIT_SHA: ${{ steps.manifest_info.outputs.COMMIT_SHA }}
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Download Generated SBOM Artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: release-sboms
+
+
+      - name: Azure Login (Zero-Trust Federated OIDC)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
       - name: Install Cosign CLI
         uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
 
       - name: Cryptographically Sign Container Images (Keyless OIDC)
         env:
-          IMAGE_DIGEST: ${{ steps.push_image.outputs.IMAGE_DIGEST }}
-          MIGRATOR_DIGEST: ${{ steps.push_image.outputs.MIGRATOR_DIGEST }}
+          IMAGE_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.IMAGE_DIGEST }}
+          MIGRATOR_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.MIGRATOR_DIGEST }}
         run: |
           cosign sign --yes "acrlabcorreadev.azurecr.io/pix-healthcheck@$IMAGE_DIGEST"
           cosign sign --yes "acrlabcorreadev.azurecr.io/pix-migrator@$MIGRATOR_DIGEST"
@@ -170,8 +242,8 @@ jobs:
           COMMIT_SHA: ${{ github.sha }}
           RUN_NUMBER: ${{ github.run_number }}
           RUN_ID: ${{ github.run_id }}
-          IMAGE_DIGEST: ${{ steps.push_image.outputs.IMAGE_DIGEST }}
-          MIGRATOR_DIGEST: ${{ steps.push_image.outputs.MIGRATOR_DIGEST }}
+          IMAGE_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.IMAGE_DIGEST }}
+          MIGRATOR_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.MIGRATOR_DIGEST }}
           SEMVER_TAG: 1.${{ github.run_number }}.0
         run: |
           $timestamp = [System.DateTimeOffset]::UtcNow.ToString("o")
@@ -228,12 +300,11 @@ jobs:
             sbom-pix-migrator.spdx.json
           retention-days: 90
 
-
-  deploy-development:
-    name: Continuous Deployment (DEV)
+  database-migration-dev:
+    name: Database Migration (DEV)
     runs-on: ubuntu-latest
     environment: development
-    needs: [publish-release]
+    needs: [sign-and-seal-release]
     timeout-minutes: 15
     steps:
       - name: Checkout Code
@@ -509,6 +580,60 @@ jobs:
             echo "CRITICAL: Job execution $EXEC_NAME did not reach terminal state within 30s!"
             exit 1
           fi
+
+  app-deployment-dev:
+    name: App Rollout & Health Check (DEV)
+    runs-on: ubuntu-latest
+    environment: development
+    needs: [database-migration-dev]
+    timeout-minutes: 15
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Cosign CLI (Keyless OIDC Verification)
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Download Release Manifest Artifact
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: release-manifest
+          path: artifacts/staging/release-manifest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Manifest Integrity (PBI01 / PBI02)
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          ./scripts/ci/verify-manifest.ps1 `
+            -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
+            -Strict `
+            -VerifySignature `
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+
+      - name: Extract Immutable Image Digest
+        id: manifest_info
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
+          $digest = $manifest.services.api.digest
+          $image = $manifest.services.api.image
+          $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
+          echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
+          echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
+          echo "DIGEST=${digest}" >> $env:GITHUB_OUTPUT
+          echo "COMMIT_SHA=$($manifest.commitSha)" >> $env:GITHUB_OUTPUT
+          echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
+          Write-Host "Target Image for DEV: ${image}@${digest}"
+          Write-Host "Target Migrator Image for DEV: $migratorImage"
+
+      - name: Azure Login via Federated OIDC (DEV Identity)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_DEV }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_DEV }}
 
       - name: Deploy Candidate Revision (0% Traffic Weight with 90s Grace Period)
         id: deploy_candidate
@@ -835,11 +960,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 90
 
-  deploy-homologation:
-    name: Homologation Quality Gate Verification
+  database-migration-hml:
+    name: Database Migration (HOM)
     runs-on: ubuntu-latest
     environment: homologation
-    needs: [deploy-development]
+    needs: [app-deployment-dev]
     timeout-minutes: 20
     steps:
       - name: Checkout Code
@@ -917,6 +1042,11 @@ jobs:
           $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
           echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
           echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
+          echo "DIGEST=${digest}" >> $env:GITHUB_OUTPUT
+          echo "COMMIT_SHA=$($manifest.commitSha)" >> $env:GITHUB_OUTPUT
+          echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
+          Write-Host "Target Image for DEV: ${image}@${digest}"
+          Write-Host "Target Migrator Image for DEV: $migratorImage"
 
       - name: Azure Login via Federated OIDC (HOM Identity)
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
@@ -1025,6 +1155,60 @@ jobs:
             exit 1
           fi
 
+  canary-rollout-hml:
+    name: Canary Rollout & SLO Quality Gate (HOM)
+    runs-on: ubuntu-latest
+    environment: homologation
+    needs: [database-migration-hml]
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Cosign CLI (Mandatory for Signature Verification)
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Download Sealed Release Manifest
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: release-manifest
+          path: artifacts/staging/release-manifest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Manifest Integrity & Signature (PBI01 / PBI02)
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          ./scripts/ci/verify-manifest.ps1 `
+            -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
+            -Strict `
+            -VerifySignature `
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+
+      - name: Extract Immutable Image Digest
+        id: manifest_info
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
+          $digest = $manifest.services.api.digest
+          $image = $manifest.services.api.image
+          $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
+          echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
+          echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
+          echo "DIGEST=${digest}" >> $env:GITHUB_OUTPUT
+          echo "COMMIT_SHA=$($manifest.commitSha)" >> $env:GITHUB_OUTPUT
+          echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
+          Write-Host "Target Image for DEV: ${image}@${digest}"
+          Write-Host "Target Migrator Image for DEV: $migratorImage"
+
+      - name: Azure Login via Federated OIDC (HOM Identity)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_HML }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_HML }}
+
       - name: Deploy Container App to HOM
         env:
           FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
@@ -1119,11 +1303,11 @@ jobs:
             hom-approval-evidence.json
           retention-days: 90
 
-  deploy-production:
-    name: Production Canary Rollout & Governance
+  database-migration-prod:
+    name: Database Migration (PRD)
     runs-on: ubuntu-latest
     environment: production
-    needs: [deploy-homologation]
+    needs: [canary-rollout-hml]
     timeout-minutes: 35
     steps:
       - name: Checkout Code
@@ -1214,9 +1398,11 @@ jobs:
           $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
           echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
           echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
-          echo "DIGEST=$digest" >> $env:GITHUB_OUTPUT
+          echo "DIGEST=${digest}" >> $env:GITHUB_OUTPUT
           echo "COMMIT_SHA=$($manifest.commitSha)" >> $env:GITHUB_OUTPUT
           echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
+          Write-Host "Target Image for DEV: ${image}@${digest}"
+          Write-Host "Target Migrator Image for DEV: $migratorImage"
 
       - name: Azure Login via Federated OIDC (PRD Identity)
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
@@ -1403,6 +1589,60 @@ jobs:
             echo "CRITICAL: Job execution $EXEC_NAME did not reach terminal state within 30s!"
             exit 1
           fi
+
+  canary-rollout-prod:
+    name: Canary Progressive Rollout & Safeguards (PRD)
+    runs-on: ubuntu-latest
+    environment: production
+    needs: [database-migration-prod]
+    timeout-minutes: 35
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Cosign CLI (Mandatory for Signature Verification)
+        uses: sigstore/cosign-installer@dc72c7d5c4d10cd6bcb8cf6e3fd625a9e5e537da # v3.7.0
+
+      - name: Download Sealed Release Manifest
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+        with:
+          name: release-manifest
+          path: artifacts/staging/release-manifest
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify Manifest Integrity & Signature (PBI01 / PBI02)
+        env:
+          GITHUB_REPO: ${{ github.repository }}
+        shell: pwsh
+        run: |
+          ./scripts/ci/verify-manifest.ps1 `
+            -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
+            -Strict `
+            -VerifySignature `
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+
+      - name: Extract Immutable Image Digest
+        id: manifest_info
+        shell: pwsh
+        run: |
+          $manifest = Get-Content -Path "artifacts/staging/release-manifest/release-manifest.json" -Raw | ConvertFrom-Json
+          $digest = $manifest.services.api.digest
+          $image = $manifest.services.api.image
+          $migratorImage = if ($manifest.services.migrator) { "$($manifest.services.migrator.image)@$($manifest.services.migrator.digest)" } else { "${image}@${digest}" }
+          echo "FULL_IMAGE=${image}@${digest}" >> $env:GITHUB_OUTPUT
+          echo "MIGRATOR_IMAGE=$migratorImage" >> $env:GITHUB_OUTPUT
+          echo "DIGEST=${digest}" >> $env:GITHUB_OUTPUT
+          echo "COMMIT_SHA=$($manifest.commitSha)" >> $env:GITHUB_OUTPUT
+          echo "RELEASE_ID=$($manifest.releaseId)" >> $env:GITHUB_OUTPUT
+          Write-Host "Target Image for DEV: ${image}@${digest}"
+          Write-Host "Target Migrator Image for DEV: $migratorImage"
+
+      - name: Azure Login via Federated OIDC (PRD Identity)
+        uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID_PROD }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID_PROD }}
 
       - name: Deploy Candidate Revision (Initial 0% Traffic Weight with 90s Grace Period)
         id: deploy_candidate
@@ -1908,8 +2148,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
-          name: prod-emergency-incident
+          name: dev-emergency-incident
           path: emergency-incident-reconciliation.json
           if-no-files-found: ignore
           retention-days: 90
-
