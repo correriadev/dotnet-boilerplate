@@ -1,0 +1,169 @@
+name: k6-performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente de Destino (dev, hml, prod, local)'
+        type: choice
+        options:
+          - dev
+          - hml
+          - prod
+          - local
+        default: dev
+        required: true
+      test_type:
+        description: 'Tipo de Teste de Performance (smoke, load, stress)'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+        default: smoke
+        required: true
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Ambiente de Destino (dev, hml, prod, local)'
+        type: string
+        required: true
+      test_type:
+        description: 'Tipo de Teste de Performance (smoke, load, stress)'
+        type: string
+        required: false
+        default: smoke
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: k6-${{ github.workflow }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    name: Validate Input Parameters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert Valid Environment and Test Type
+        shell: bash
+        run: |
+          TARGET_ENV="${{ inputs.environment }}"
+          TEST_TYPE="${{ inputs.test_type }}"
+
+          case "$TARGET_ENV" in
+            dev|hml|prod|local)
+              echo "Valid environment: $TARGET_ENV"
+              ;;
+            *)
+              echo "::error::Ambiente invalido: $TARGET_ENV. Permitidos: dev, hml, prod, local."
+              exit 1
+              ;;
+          esac
+
+          case "$TEST_TYPE" in
+            smoke|load|stress)
+              echo "Valid test type: $TEST_TYPE"
+              ;;
+            *)
+              echo "::error::Tipo de teste invalido: $TEST_TYPE. Permitidos: smoke, load, stress."
+              exit 1
+              ;;
+          esac
+
+  execute-k6:
+    name: Execute k6 (${{ inputs.test_type }}) on ${{ inputs.environment }}
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup k6 CLI
+        uses: grafana/setup-k6-action@v1
+
+      - name: Resolve Target Base URL
+        id: resolve_url
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.target_url }}
+          VARS_URL: ${{ vars.BASE_URL }}
+          ENV_NAME: ${{ inputs.environment }}
+        run: |
+          RESOLVED="$INPUT_URL"
+          if [ -z "$RESOLVED" ]; then
+            RESOLVED="$VARS_URL"
+          fi
+
+          if [ -z "$RESOLVED" ]; then
+            case "$ENV_NAME" in
+              dev)
+                RESOLVED="https://aca-pix-healthcheck-dev.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              hml)
+                RESOLVED="https://aca-pix-healthcheck-hml.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              prod)
+                RESOLVED="https://aca-pix-healthcheck-prd.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              local)
+                RESOLVED="http://localhost:5000"
+                ;;
+            esac
+            echo "::warning::vars.BASE_URL nao definida no environment $ENV_NAME. Utilizando URL padrao do ACA: $RESOLVED"
+          fi
+
+          echo "RESOLVED_BASE_URL=$RESOLVED" >> "$GITHUB_OUTPUT"
+          echo "Target Base URL: $RESOLVED"
+
+      - name: Execute k6 Test Suite
+        shell: bash
+        env:
+          BASE_URL: ${{ steps.resolve_url.outputs.RESOLVED_BASE_URL }}
+          ENVIRONMENT: ${{ inputs.environment }}
+          TEST_TYPE: ${{ inputs.test_type }}
+        run: |
+          echo "Disparando k6 com ENVIRONMENT=$ENVIRONMENT, TEST_TYPE=$TEST_TYPE contra $BASE_URL..."
+          k6 run tests/k6/health.js
+
+      - name: Collect and Publish Step Summary
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p results
+          if [ -f summary.md ]; then
+            cp summary.md results/summary.md
+            cat summary.md >> "$GITHUB_STEP_SUMMARY"
+          elif [ -f results/summary.md ]; then
+            cat results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Falha na execucao do k6" >> "$GITHUB_STEP_SUMMARY"
+            echo "Nenhum relatorio gerado. Verifique os logs de execucao." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f summary.json ]; then
+            cp summary.json results/summary.json
+          fi
+
+      - name: Upload k6 Execution Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ inputs.environment }}-${{ inputs.test_type }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 14

@@ -87,3 +87,9 @@ rollback-audit-event.json
 
 # Superpowers / Brainstorming internal artifacts
 docs/superpowers/
+
+# k6 load test results
+results/
+tests/k6/results/
+summary.md
+summary.json
