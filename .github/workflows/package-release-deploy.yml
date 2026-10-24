@@ -273,10 +273,6 @@ jobs:
     needs: [docker-packaging-and-tag, security-scan-trivy, sbom-generation-syft]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    outputs:
-      FULL_IMAGE: ${{ steps.manifest_info.outputs.FULL_IMAGE }}
-      MIGRATOR_IMAGE: ${{ steps.manifest_info.outputs.MIGRATOR_IMAGE }}
-      COMMIT_SHA: ${{ steps.manifest_info.outputs.COMMIT_SHA }}
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -376,6 +372,9 @@ jobs:
     environment: development
     needs: [sign-and-seal-release]
     timeout-minutes: 15
+    outputs:
+      IS_COLD_START: ${{ steps.pre_migration.outputs.IS_COLD_START }}
+      STABLE_REVISION: ${{ steps.pre_migration.outputs.STABLE_REVISION }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -399,7 +398,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Extract Immutable Image Digest
         id: manifest_info
@@ -680,7 +679,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Extract Immutable Image Digest
         id: manifest_info
@@ -780,8 +779,8 @@ jobs:
         id: coexistence_gate
         shell: pwsh
         env:
-          IS_COLD_START: ${{ steps.pre_migration.outputs.IS_COLD_START }}
-          STABLE_REV: ${{ steps.pre_migration.outputs.STABLE_REVISION }}
+          IS_COLD_START: ${{ needs.database-migration-dev.outputs.IS_COLD_START }}
+          STABLE_REV: ${{ needs.database-migration-dev.outputs.STABLE_REVISION }}
           CANDIDATE_REV: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
         run: |
           if ($env:IS_COLD_START -eq "true") {
@@ -882,7 +881,7 @@ jobs:
         shell: pwsh
         env:
           CANDIDATE_REV: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
-          STABLE_REV: ${{ steps.pre_migration.outputs.STABLE_REVISION }}
+          STABLE_REV: ${{ needs.database-migration-dev.outputs.STABLE_REVISION }}
           RELEASE_ID: ${{ steps.manifest_info.outputs.RELEASE_ID }}
           COMMIT_SHA: ${{ steps.manifest_info.outputs.COMMIT_SHA }}
           DIGEST: ${{ steps.manifest_info.outputs.DIGEST }}
@@ -1059,7 +1058,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Download Prior DEV Deployment Approval Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
@@ -1254,7 +1253,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Extract Immutable Image Digest
         id: manifest_info
@@ -1379,6 +1378,8 @@ jobs:
     environment: production
     needs: [canary-rollout-hml]
     timeout-minutes: 35
+    outputs:
+      STABLE_REVISION: ${{ steps.stable_rev.outputs.STABLE_REVISION }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -1402,7 +1403,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Download HOM Quality Gate Audit Evidence (PBI07)
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
@@ -1689,7 +1690,7 @@ jobs:
             -ManifestPath "artifacts/staging/release-manifest/release-manifest.json" `
             -Strict `
             -VerifySignature `
-            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/pix-api-cd\.yml@refs/heads/main$"
+            -CertificateIdentityRegexp "^https://github\.com/$($env:GITHUB_REPO)/\.github/workflows/package-release-deploy\.yml@refs/heads/main$"
 
       - name: Extract Immutable Image Digest
         id: manifest_info
@@ -1736,7 +1737,7 @@ jobs:
       - name: Apply Canary 90/10 Traffic Split & Verify Active State
         id: traffic_split
         env:
-          STABLE: ${{ steps.stable_rev.outputs.STABLE_REVISION }}
+          STABLE: ${{ needs.database-migration-prod.outputs.STABLE_REVISION }}
           CANARY: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
         run: |
           echo "Applying traffic split: $STABLE=90, $CANARY=10..."
@@ -1761,7 +1762,7 @@ jobs:
         id: canary_bake
         env:
           CANARY_REV: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
-          STABLE_REV: ${{ steps.stable_rev.outputs.STABLE_REVISION }}
+          STABLE_REV: ${{ needs.database-migration-prod.outputs.STABLE_REVISION }}
         shell: pwsh
         run: |
           ./scripts/ci/canary-bake-monitor.ps1 `
@@ -1788,7 +1789,7 @@ jobs:
         shell: pwsh
         env:
           CANARY: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
-          STABLE: ${{ steps.stable_rev.outputs.STABLE_REVISION }}
+          STABLE: ${{ needs.database-migration-prod.outputs.STABLE_REVISION }}
           RELEASE_ID: ${{ steps.manifest_info.outputs.RELEASE_ID }}
           COMMIT_SHA: ${{ steps.manifest_info.outputs.COMMIT_SHA }}
           DIGEST: ${{ steps.manifest_info.outputs.DIGEST }}
@@ -1924,7 +1925,7 @@ jobs:
       - name: Execute Safeguarded Automatic Rollback on Any Workflow Interruption or Failure
         if: always() && (cancelled() || failure()) && steps.deploy_candidate.outcome != 'skipped'
         env:
-          STABLE_REV: ${{ steps.stable_rev.outputs.STABLE_REVISION }}
+          STABLE_REV: ${{ needs.database-migration-prod.outputs.STABLE_REVISION }}
           CANARY_REV: ${{ steps.deploy_candidate.outputs.CANDIDATE_REVISION }}
           RUN_NUMBER: ${{ github.run_number }}
         shell: pwsh
