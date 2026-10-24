@@ -82,3 +82,4 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(95)', 'p(99)'],
   thresholds: resolveThresholds(testType),
 };
+

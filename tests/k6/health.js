@@ -49,3 +49,4 @@ export default function () {
   // Intervalo controlado para simular cadência realista entre iterações por VU
   sleep(1);
 }
+

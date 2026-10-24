@@ -1,0 +1,135 @@
+name: qa-automated-suite
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente de Testes (dev, hml, prod, local)'
+        type: choice
+        options:
+          - dev
+          - hml
+          - prod
+          - local
+        default: dev
+        required: true
+      run_bruno:
+        description: 'Executar Testes Funcionais e de Contrato (Bruno)'
+        type: boolean
+        default: true
+        required: true
+      run_k6:
+        description: 'Executar Testes de Carga e Performance (k6)'
+        type: boolean
+        default: true
+        required: true
+      k6_test_type:
+        description: 'Perfil de Teste k6'
+        type: choice
+        options:
+          - smoke
+          - load
+          - stress
+        default: smoke
+        required: true
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Ambiente de Testes (dev, hml, prod, local)'
+        type: string
+        required: true
+      run_bruno:
+        description: 'Executar Testes Funcionais e de Contrato (Bruno)'
+        type: boolean
+        default: true
+        required: false
+      run_k6:
+        description: 'Executar Testes de Carga e Performance (k6)'
+        type: boolean
+        default: true
+        required: false
+      k6_test_type:
+        description: 'Perfil de Teste k6'
+        type: string
+        default: smoke
+        required: false
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-suite-${{ github.workflow }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  bruno-functional-gate:
+    name: Bruno Functional & Contract Gate
+    if: ${{ inputs.run_bruno }}
+    uses: ./.github/workflows/bruno-api-test.yml
+    with:
+      environment: ${{ inputs.environment }}
+      collection_path: smoke
+      target_url: ${{ inputs.target_url }}
+    secrets: inherit
+
+  k6-performance-gate:
+    name: k6 Performance & SLO Gate
+    if: ${{ inputs.run_k6 }}
+    needs: [bruno-functional-gate]
+    uses: ./.github/workflows/k6-performance.yml
+    with:
+      environment: ${{ inputs.environment }}
+      test_type: ${{ inputs.k6_test_type }}
+      target_url: ${{ inputs.target_url }}
+    secrets: inherit
+
+  qa-verdict:
+    name: QA Suite Consolidation & Gate Verdict
+    if: always()
+    needs: [bruno-functional-gate, k6-performance-gate]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Consolidated Quality Verdict
+        shell: bash
+        env:
+          BRUNO_RESULT: ${{ needs.bruno-functional-gate.result }}
+          K6_RESULT: ${{ needs.k6-performance-gate.result }}
+          ENV_NAME: ${{ inputs.environment }}
+          K6_TYPE: ${{ inputs.k6_test_type }}
+        run: |
+          echo "## Veredicto Consolidado da Suíte de QA — \`$ENV_NAME\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pilar de QA | Ferramenta | Perfil / Escopo | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- | :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+          
+          if [ "${{ inputs.run_bruno }}" = "true" ]; then
+            echo "| Funcional / Contrato | Bruno (@usebruno/cli) | Smoke / Health Contract | $BRUNO_RESULT |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Funcional / Contrato | Bruno (@usebruno/cli) | - | SKIPPED |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ "${{ inputs.run_k6 }}" = "true" ]; then
+            echo "| Carga / SLOs | k6 (Grafana k6) | $K6_TYPE (Thresholds P95/P99) | $K6_RESULT |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "| Carga / SLOs | k6 (Grafana k6) | - | SKIPPED |" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$BRUNO_RESULT" = "failure" ] || [ "$K6_RESULT" = "failure" ]; then
+            echo "::error::A esteira de QA reprovou um ou mais quality gates! Consulte os relatorios detalhados nos jobs individuais."
+            exit 1
+          fi
+
+          echo "Todos os quality gates da suite de QA foram aprovados com sucesso." >> "$GITHUB_STEP_SUMMARY"

@@ -53,3 +53,4 @@ export function handleSummary(data) {
     'summary.json': JSON.stringify(data, null, 2),
   };
 }
+

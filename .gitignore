@@ -93,3 +93,8 @@ results/
 tests/k6/results/
 summary.md
 summary.json
+
+# Bruno API test reports and dependencies
+tests/bruno/node_modules/
+tests/bruno/reports/
+reports/

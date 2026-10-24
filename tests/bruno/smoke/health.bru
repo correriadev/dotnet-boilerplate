@@ -1,0 +1,42 @@
+meta {
+  name: Health Check
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+  User-Agent: bruno-test-runner/1.0
+}
+
+assert {
+  res.status: eq 200
+  res.headers['content-type']: matches application/json
+}
+
+tests {
+  test("Status deve ser Healthy", function() {
+    const data = res.getBody();
+    expect(data).to.be.an('object');
+    expect(data.status).to.equal('Healthy');
+  });
+
+  test("Estrutura do relatório de saúde da API", function() {
+    const data = res.getBody();
+    expect(data.version).to.be.a('string');
+    expect(data.environment).to.be.a('string');
+    expect(data.totalDuration).to.be.a('string');
+    expect(data.entries).to.be.an('object');
+  });
+
+  test("Latência da resposta dentro do limite", function() {
+    const limit = Number(bru.getEnvVar('healthMaxMs')) || 3000;
+    expect(res.getResponseTime()).to.be.at.most(limit);
+  });
+}

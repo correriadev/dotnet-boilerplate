@@ -1,0 +1,167 @@
+name: bruno-api-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Ambiente de Destino (dev, hml, prod, local)'
+        type: choice
+        options:
+          - dev
+          - hml
+          - prod
+          - local
+        default: dev
+        required: true
+      collection_path:
+        description: 'Subdiretório da Coleção (ex: smoke, regression)'
+        type: string
+        default: smoke
+        required: true
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Ambiente de Destino (dev, hml, prod, local)'
+        type: string
+        required: true
+      collection_path:
+        description: 'Subdiretório da Coleção (ex: smoke, regression)'
+        type: string
+        required: false
+        default: smoke
+      target_url:
+        description: 'URL Base da API (opcional, sobrescreve vars.BASE_URL)'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bruno-${{ github.workflow }}-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  validate-inputs:
+    name: Validate Input Parameters
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert Valid Environment
+        shell: bash
+        run: |
+          TARGET_ENV="${{ inputs.environment }}"
+          case "$TARGET_ENV" in
+            dev|hml|prod|local)
+              echo "Valid environment: $TARGET_ENV"
+              ;;
+            *)
+              echo "::error::Ambiente invalido: $TARGET_ENV. Permitidos: dev, hml, prod, local."
+              exit 1
+              ;;
+          esac
+
+  execute-bruno:
+    name: Execute Bruno (${{ inputs.collection_path }}) on ${{ inputs.environment }}
+    needs: validate-inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: ${{ inputs.environment }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: 'tests/bruno/package.json'
+
+      - name: Install Bruno CLI
+        shell: bash
+        run: |
+          cd tests/bruno
+          npm install
+
+      - name: Resolve Target Base URL
+        id: resolve_url
+        shell: bash
+        env:
+          INPUT_URL: ${{ inputs.target_url }}
+          VARS_URL: ${{ vars.BASE_URL }}
+          ENV_NAME: ${{ inputs.environment }}
+        run: |
+          RESOLVED="$INPUT_URL"
+          if [ -z "$RESOLVED" ]; then
+            RESOLVED="$VARS_URL"
+          fi
+
+          if [ -z "$RESOLVED" ]; then
+            case "$ENV_NAME" in
+              dev)
+                RESOLVED="https://aca-pix-healthcheck-dev.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              hml)
+                RESOLVED="https://aca-pix-healthcheck-hml.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              prod)
+                RESOLVED="https://aca-pix-healthcheck-prd.victoriousisland-3ec9e4cf.eastus.azurecontainerapps.io"
+                ;;
+              local)
+                RESOLVED="http://localhost:5000"
+                ;;
+            esac
+            echo "::warning::vars.BASE_URL nao definida no environment $ENV_NAME. Utilizando URL padrao do ACA: $RESOLVED"
+          fi
+
+          echo "RESOLVED_BASE_URL=$RESOLVED" >> "$GITHUB_OUTPUT"
+          echo "Target Base URL: $RESOLVED"
+
+      - name: Execute Bruno API Test Suite
+        shell: bash
+        env:
+          TARGET_URL: ${{ steps.resolve_url.outputs.RESOLVED_BASE_URL }}
+          TARGET_ENV: ${{ inputs.environment }}
+          COLLECTION_PATH: ${{ inputs.collection_path }}
+        run: |
+          mkdir -p tests/bruno/reports
+          cd tests/bruno
+          echo "Executando Bruno CLI contra $TARGET_URL (Ambiente: $TARGET_ENV, Colecao: $COLLECTION_PATH)..."
+          npx bru run "$COLLECTION_PATH" \
+            --env "$TARGET_ENV" \
+            --env-var "baseUrl=$TARGET_URL" \
+            --reporter-junit reports/junit.xml \
+            --reporter-html reports/report.html \
+            --reporter-json reports/report.json
+
+      - name: Publish Step Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Relatorio Bruno API Test — \`${{ inputs.environment }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**Colecao:** \`${{ inputs.collection_path }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "**URL Alvo:** \`${{ steps.resolve_url.outputs.RESOLVED_BASE_URL }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ -f tests/bruno/reports/junit.xml ]; then
+            echo "Relatorio JUnit gerado com sucesso em \`tests/bruno/reports/junit.xml\`." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f tests/bruno/reports/report.html ]; then
+            echo "Relatorio HTML disponivel para download nos artefatos da execucao." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Bruno Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bruno-${{ inputs.environment }}-${{ inputs.collection_path }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: tests/bruno/reports/
+          if-no-files-found: warn
+          retention-days: 14

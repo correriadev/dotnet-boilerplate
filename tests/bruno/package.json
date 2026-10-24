@@ -1,0 +1,14 @@
+{
+  "name": "pix-healthcheck-bruno-tests",
+  "version": "1.0.0",
+  "description": "Testes funcionais e de contrato de API com Bruno",
+  "scripts": {
+    "test:local": "bru run smoke --env local",
+    "test:dev": "bru run smoke --env dev",
+    "test:hml": "bru run smoke --env hml",
+    "test:prod": "bru run smoke --env prod"
+  },
+  "devDependencies": {
+    "@usebruno/cli": "^1.38.0"
+  }
+}

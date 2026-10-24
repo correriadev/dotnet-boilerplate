@@ -106,3 +106,4 @@
 * **Tarefas Técnicas:**
   - Adicionar perfil `stress` ao `tests/k6/lib/config.js`.
   - Documentar estratégia de testes noturnos no repositório.
+
