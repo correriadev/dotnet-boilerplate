@@ -1,11 +1,16 @@
 name: Package, Release & Deployment Pipeline
 
-run-name: Release v1.${{ github.run_number }}.0
+run-name: ${{ inputs.release_version && format('Release {0}', inputs.release_version) || format('Release v1.{0}.0', github.run_number) }}
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Manual SemVer release version (e.g. 1.2.0). If omitted, automatically calculated.'
+        required: false
+        type: string
 
 concurrency:
   group: package-release-deploy
@@ -55,31 +60,96 @@ jobs:
     steps:
       - name: Checkout Source Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
 
       - name: Create and Push Git Tag Early (GMUD/CAB Audit)
         id: create_tag
         shell: bash
         env:
-          SEMVER_TAG: 1.${{ github.run_number }}.0
+          MANUAL_VERSION: ${{ inputs.release_version }}
         run: |
-          TAG_NAME="v${SEMVER_TAG}"
-          echo "Early Git Tag Stamping: $TAG_NAME..."
+          set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
-            EXISTING_COMMIT=$(git rev-parse "$TAG_NAME^{commit}")
-            if [ "$EXISTING_COMMIT" != "$GITHUB_SHA" ]; then
-              echo "CRITICAL: Git tag $TAG_NAME already points to a different commit ($EXISTING_COMMIT)! Refusing to overwrite."
+
+          # 1. Ensure local tags are fully synchronized with remote
+          git fetch --tags --force origin 2>/dev/null || true
+
+          SHA="${GITHUB_SHA}"
+          echo "Current Commit SHA: $SHA"
+
+          # 2. Check if current commit is already stamped with a SemVer tag
+          EXISTING_COMMIT_TAG=$(git tag --points-at "$SHA" "v[0-9]*.[0-9]*.[0-9]*" | head -n 1 || true)
+          ALREADY_PUSHED=false
+
+          if [ -n "$EXISTING_COMMIT_TAG" ]; then
+            TAG_NAME="$EXISTING_COMMIT_TAG"
+            SEMVER_TAG="${TAG_NAME#v}"
+            echo "Current commit is already stamped with $TAG_NAME ($SEMVER_TAG). Reusing existing tag."
+            ALREADY_PUSHED=true
+          elif [ -n "${MANUAL_VERSION:-}" ]; then
+            CLEAN_MANUAL="${MANUAL_VERSION#v}"
+            if [[ ! "$CLEAN_MANUAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "CRITICAL: Provided manual version '$MANUAL_VERSION' is not valid SemVer (expected X.Y.Z)!"
               exit 1
             fi
-            echo "Git tag $TAG_NAME already exists and matches current commit."
+            SEMVER_TAG="$CLEAN_MANUAL"
+            TAG_NAME="v${SEMVER_TAG}"
+            echo "Using manual SemVer override: $TAG_NAME"
           else
+            # 3. Determine next SemVer version dynamically
+            LATEST_TAG=$(git tag -l "v[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -n 1 || true)
+            MAJOR=1
+            TARGET_MINOR="${{ github.run_number }}"
+
+            if [ -n "$LATEST_TAG" ]; then
+              echo "Highest existing tag in repository: $LATEST_TAG"
+              CLEAN_VER="${LATEST_TAG#v}"
+              MAJOR=$(echo "$CLEAN_VER" | cut -d. -f1)
+              LATEST_MINOR=$(echo "$CLEAN_VER" | cut -d. -f2)
+
+              if [ "$TARGET_MINOR" -le "$LATEST_MINOR" ]; then
+                TARGET_MINOR=$((LATEST_MINOR + 1))
+              fi
+            fi
+
+            SEMVER_TAG="${MAJOR}.${TARGET_MINOR}.0"
+
+            # 4. Atomic collision avoidance against remote origin
+            while :; do
+              TAG_NAME="v${SEMVER_TAG}"
+              echo "Verifying availability of candidate tag $TAG_NAME on remote..."
+              REMOTE_SHA=$(git ls-remote --tags origin "refs/tags/$TAG_NAME" "refs/tags/$TAG_NAME^{}" 2>/dev/null | awk '$2 ~ /\^\{\}$/ { peeled=$1 } $2 !~ /\^\{\}$/ { direct=$1 } END { print (peeled != "" ? peeled : direct) }' || true)
+
+              if [ -z "$REMOTE_SHA" ]; then
+                echo "Tag $TAG_NAME is available (not found on remote)."
+                break
+              fi
+
+              if [ "$REMOTE_SHA" = "$SHA" ]; then
+                echo "Tag $TAG_NAME already exists on remote and matches current commit $SHA. Reusing."
+                ALREADY_PUSHED=true
+                break
+              fi
+
+              echo "Notice: Tag $TAG_NAME exists on remote but points to a different commit ($REMOTE_SHA). Bumping version..."
+              TARGET_MINOR=$((TARGET_MINOR + 1))
+              SEMVER_TAG="${MAJOR}.${TARGET_MINOR}.0"
+            done
+          fi
+
+          # 5. Create and push tag if not already stamped
+          if [ "$ALREADY_PUSHED" != "true" ]; then
+            echo "Creating annotated tag $TAG_NAME on commit $SHA..."
             git tag -a "$TAG_NAME" -m "Release $TAG_NAME (Run #${{ github.run_number }})"
+            echo "Pushing tag $TAG_NAME to origin..."
             git push origin "$TAG_NAME"
           fi
+
           echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_OUTPUT"
           echo "SEMVER_TAG=$SEMVER_TAG" >> "$GITHUB_OUTPUT"
-          echo "Git tag $TAG_NAME verified and pushed early for release traceability."
+          echo "Release tag finalized: $TAG_NAME (SemVer: $SEMVER_TAG)"
 
       - name: Azure Login (Zero-Trust Federated OIDC)
         uses: azure/login@a65d910e8af852a8061c627c456678983e180302 # v2.2.0
@@ -97,7 +167,7 @@ jobs:
       - name: Build Local Container Images
         env:
           IMAGE_TAG: ${{ github.sha }}
-          SEMVER_TAG: 1.${{ github.run_number }}.0
+          SEMVER_TAG: ${{ steps.create_tag.outputs.SEMVER_TAG }}
         run: |
           docker build \
             --build-arg VERSION="$SEMVER_TAG" \
@@ -113,7 +183,7 @@ jobs:
         id: push_image
         env:
           IMAGE_TAG: ${{ github.sha }}
-          SEMVER_TAG: 1.${{ github.run_number }}.0
+          SEMVER_TAG: ${{ steps.create_tag.outputs.SEMVER_TAG }}
         run: |
           docker push "acrlabcorreadev.azurecr.io/pix-healthcheck:$IMAGE_TAG"
           docker push "acrlabcorreadev.azurecr.io/pix-healthcheck:$SEMVER_TAG"
@@ -200,7 +270,7 @@ jobs:
 
   sign-and-seal-release:
     name: Cosign Signing & Sealed Manifest
-    needs: [security-scan-trivy, sbom-generation-syft]
+    needs: [docker-packaging-and-tag, security-scan-trivy, sbom-generation-syft]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
@@ -244,7 +314,7 @@ jobs:
           RUN_ID: ${{ github.run_id }}
           IMAGE_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.IMAGE_DIGEST }}
           MIGRATOR_DIGEST: ${{ needs.docker-packaging-and-tag.outputs.MIGRATOR_DIGEST }}
-          SEMVER_TAG: 1.${{ github.run_number }}.0
+          SEMVER_TAG: ${{ needs.docker-packaging-and-tag.outputs.SEMVER_TAG }}
         run: |
           $timestamp = [System.DateTimeOffset]::UtcNow.ToString("o")
           $semver = $env:SEMVER_TAG
