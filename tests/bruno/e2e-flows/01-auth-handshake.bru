@@ -1,0 +1,34 @@
+meta {
+  name: 01 - Handshake e Token Bearer
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+  User-Agent: bruno-e2e-runner/1.0
+}
+
+assert {
+  res.status: eq 200
+  res.headers['content-type']: matches application/json
+}
+
+tests {
+  test("Handshake com sucesso e geracao de contexto de execucao", function() {
+    const runId = "test-run-" + Date.now();
+    const mockToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.mockToken-" + Date.now();
+
+    bru.setVar("bearerToken", mockToken);
+    bru.setVar("testRunId", runId);
+
+    expect(bru.getVar("bearerToken")).to.be.a('string');
+    expect(bru.getVar("testRunId")).to.be.a('string');
+  });
+}

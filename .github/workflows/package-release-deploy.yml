@@ -44,8 +44,36 @@ jobs:
       - name: Compile Solution (Zero Warning Tolerance)
         run: dotnet build Pix.HealthCheck.sln --configuration Release --no-restore /p:TreatWarningsAsErrors=true
 
-      - name: Execute Unit and Architecture Tests
-        run: dotnet test Pix.HealthCheck.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx"
+      - name: Execute Unit and Architecture Tests with Coverage
+        run: dotnet test Pix.HealthCheck.sln --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Evaluate Code Coverage Quality Gate
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-coverage.ps1 -MinLineRate 0.50 -MinBranchRate 0.50 -OutputFile "coverage-summary.md" -FailClosed
+          if (Test-Path "coverage-summary.md") {
+            Get-Content "coverage-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Evaluate OpenAPI Breaking Changes Contract Guard
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-openapi-diff.ps1 -OutputFile "openapi-diff-summary.md" -FailClosed
+          if (Test-Path "openapi-diff-summary.md") {
+            Get-Content "openapi-diff-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Upload Test and Coverage Results
+        if: always()
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+        with:
+          name: unit-test-and-coverage-results
+          path: |
+            TestResults/
+            coverage-summary.md
+            openapi-diff-summary.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   docker-packaging-and-tag:
     name: Docker Packaging & Git Tag

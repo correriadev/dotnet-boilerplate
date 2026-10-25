@@ -1,0 +1,102 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Pix HealthCheck API",
+    "version": "1.0.0",
+    "description": "API crítica de diagnóstico e prontidão da plataforma Pix"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Verificação de Saúde Consolidada",
+        "description": "Retorna o status agregado de saúde e detalhamento de dependências da API",
+        "operationId": "GetHealth",
+        "responses": {
+          "200": {
+            "description": "Serviço e todas as dependências críticas operacionais (Healthy)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReportResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Uma ou mais dependências críticas inacessíveis (Unhealthy)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthReportResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "totalDuration",
+          "timestamp",
+          "environment",
+          "version",
+          "servicesCheckedCount",
+          "entries"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["Healthy", "Degraded", "Unhealthy"]
+          },
+          "totalDuration": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "servicesCheckedCount": {
+            "type": "integer"
+          },
+          "entries": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/HealthCheckEntry"
+            }
+          }
+        }
+      },
+      "HealthCheckEntry": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["Healthy", "Degraded", "Unhealthy"]
+          },
+          "duration": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

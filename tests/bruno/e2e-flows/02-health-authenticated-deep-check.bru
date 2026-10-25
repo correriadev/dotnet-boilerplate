@@ -1,0 +1,40 @@
+meta {
+  name: 02 - Deep Health Check com Contexto Encadeado
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+  Authorization: Bearer {{bearerToken}}
+  X-Test-Run-Id: {{testRunId}}
+  User-Agent: bruno-e2e-runner/1.0
+}
+
+assert {
+  res.status: eq 200
+  res.headers['content-type']: matches application/json
+}
+
+tests {
+  test("Status e contrato global da API", function() {
+    const data = res.getBody();
+    expect(data.status).to.equal("Healthy");
+    expect(data.environment).to.be.a("string");
+    expect(data.version).to.be.a("string");
+    expect(data.entries).to.be.an("object");
+
+    bru.setVar("activeAppVersion", data.version);
+  });
+
+  test("Latencia da resposta dentro do SLA contratual", function() {
+    const maxLatency = Number(bru.getEnvVar("healthMaxMs")) || 3000;
+    expect(res.getResponseTime()).to.be.at.most(maxLatency);
+  });
+}

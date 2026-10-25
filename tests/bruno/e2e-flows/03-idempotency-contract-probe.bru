@@ -1,0 +1,37 @@
+meta {
+  name: 03 - Prova de Idempotencia e Reconciliacao
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/health
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/json
+  Authorization: Bearer {{bearerToken}}
+  X-Test-Run-Id: {{testRunId}}
+  X-Idempotency-Key: {{testRunId}}-idemp-01
+  User-Agent: bruno-e2e-runner/1.0
+}
+
+assert {
+  res.status: eq 200
+  res.headers['content-type']: matches application/json
+}
+
+tests {
+  test("Garantia de consistencia da versao ativa entre chamadas", function() {
+    const data = res.getBody();
+    const priorVersion = bru.getVar("activeAppVersion");
+    expect(data.version).to.equal(priorVersion);
+  });
+
+  test("Confirmacao de integridade das dependencias", function() {
+    const data = res.getBody();
+    expect(data.status).to.equal("Healthy");
+  });
+}

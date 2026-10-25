@@ -1,0 +1,77 @@
+name: stryker-mutation-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      incremental:
+        description: 'Executar em modo incremental (--since:origin/main)'
+        type: boolean
+        default: true
+        required: true
+  schedule:
+    # Execução noturna completa (Nightly) às 03:00 UTC de segunda a sexta
+    - cron: '0 3 * * 1-5'
+  workflow_call:
+    inputs:
+      incremental:
+        description: 'Executar em modo incremental (--since:origin/main)'
+        type: boolean
+        default: true
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stryker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation-tests:
+    name: Stryker Mutation Testing (.NET 8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Stryker.NET Global Tool
+        shell: bash
+        run: dotnet tool install --global dotnet-stryker
+
+      - name: Execute Stryker Mutation Tests
+        shell: bash
+        run: |
+          mkdir -p StrykerOutput
+          if [ "${{ inputs.incremental || true }}" = "true" ] && [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "Executando Stryker em modo INCREMENTAL (--since:origin/main)..."
+            dotnet stryker --config-file stryker-config.json --since:origin/main
+          else
+            echo "Executando Stryker em modo COMPLETO (Nightly/Full)..."
+            dotnet stryker --config-file stryker-config.json
+          fi
+
+      - name: Publish Step Summary
+        if: always()
+        shell: bash
+        run: |
+          echo "## Relatorio de Testes de Mutacao (Stryker.NET)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Relatorio interativo HTML gerado na pasta \`StrykerOutput/\`." >> "$GITHUB_STEP_SUMMARY"
+          echo "Verifique o artefato publicado para visualizar mutantes mortos, sobreviventes e mutation score." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Stryker Report Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stryker-mutation-report-run-${{ github.run_id }}
+          path: StrykerOutput/
+          if-no-files-found: warn
+          retention-days: 14

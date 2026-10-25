@@ -72,3 +72,4 @@
     * *Então* a versão deve ser considerada apta para Canary em produção.
 * **Tarefas Técnicas:**
   - Atualizar `.github/workflows/package-release-deploy.yml` integrando chamadas ou jobs dedicados de QA.
+

@@ -98,3 +98,11 @@ summary.json
 tests/bruno/node_modules/
 tests/bruno/reports/
 reports/
+
+# Coverage test results
+coverage-summary.md
+openapi-diff-summary.md
+TestResults/
+
+# Stryker mutation test reports
+StrykerOutput/

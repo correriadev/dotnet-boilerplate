@@ -1,0 +1,25 @@
+{
+  "$schema": "https://raw.githubusercontent.com/stryker-mutator/stryker-net/master/src/Stryker.Core/Stryker.Core/stryker-config.schema.json",
+  "stryker-config": {
+    "solution": "Pix.HealthCheck.sln",
+    "project": "Pix.HealthCheck.Api.csproj",
+    "test-projects": [
+      "tests/Pix.HealthCheck.Api.Tests/Pix.HealthCheck.Api.Tests.csproj"
+    ],
+    "reporters": [
+      "html",
+      "progress",
+      "clear-text",
+      "json"
+    ],
+    "thresholds": {
+      "high": 80,
+      "low": 60,
+      "break": 50
+    },
+    "concurrency": 2,
+    "mutate": [
+      "src/Pix.HealthCheck.Api/**/*.cs"
+    ]
+  }
+}

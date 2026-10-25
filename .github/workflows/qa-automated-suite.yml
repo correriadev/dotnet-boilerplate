@@ -133,3 +133,4 @@ jobs:
           fi
 
           echo "Todos os quality gates da suite de QA foram aprovados com sucesso." >> "$GITHUB_STEP_SUMMARY"
+
