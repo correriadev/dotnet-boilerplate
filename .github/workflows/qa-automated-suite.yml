@@ -108,24 +108,26 @@ jobs:
           ENV_NAME: ${{ inputs.environment }}
           K6_TYPE: ${{ inputs.k6_test_type }}
         run: |
-          echo "## Veredicto Consolidado da Suíte de QA — \`$ENV_NAME\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Pilar de QA | Ferramenta | Perfil / Escopo | Status |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| :--- | :--- | :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
-          
-          if [ "${{ inputs.run_bruno }}" = "true" ]; then
-            echo "| Funcional / Contrato | Bruno (@usebruno/cli) | Smoke / Health Contract | $BRUNO_RESULT |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| Funcional / Contrato | Bruno (@usebruno/cli) | - | SKIPPED |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## Veredicto Consolidado da Suíte de QA — \`$ENV_NAME\`"
+            echo ""
+            echo "| Pilar de QA | Ferramenta | Perfil / Escopo | Status |"
+            echo "| :--- | :--- | :--- | :--- |"
+            
+            if [ "${{ inputs.run_bruno }}" = "true" ]; then
+              echo "| Funcional / Contrato | Bruno (@usebruno/cli) | Smoke / Health Contract | $BRUNO_RESULT |"
+            else
+              echo "| Funcional / Contrato | Bruno (@usebruno/cli) | - | SKIPPED |"
+            fi
 
-          if [ "${{ inputs.run_k6 }}" = "true" ]; then
-            echo "| Carga / SLOs | k6 (Grafana k6) | $K6_TYPE (Thresholds P95/P99) | $K6_RESULT |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| Carga / SLOs | k6 (Grafana k6) | - | SKIPPED |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+            if [ "${{ inputs.run_k6 }}" = "true" ]; then
+              echo "| Carga / SLOs | k6 (Grafana k6) | $K6_TYPE (Thresholds P95/P99) | $K6_RESULT |"
+            else
+              echo "| Carga / SLOs | k6 (Grafana k6) | - | SKIPPED |"
+            fi
 
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$BRUNO_RESULT" = "failure" ] || [ "$K6_RESULT" = "failure" ]; then
             echo "::error::A esteira de QA reprovou um ou mais quality gates! Consulte os relatorios detalhados nos jobs individuais."

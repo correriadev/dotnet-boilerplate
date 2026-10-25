@@ -92,10 +92,10 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup k6 CLI
-        uses: grafana/setup-k6-action@v1
+        uses: grafana/setup-k6-action@43b9fc21641a76002687994433dd586f56e791b1 # v1.2.2
 
       - name: Resolve Target Base URL
         id: resolve_url
@@ -152,8 +152,10 @@ jobs:
           elif [ -f results/summary.md ]; then
             cat results/summary.md >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "## Falha na execucao do k6" >> "$GITHUB_STEP_SUMMARY"
-            echo "Nenhum relatorio gerado. Verifique os logs de execucao." >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## Falha na execucao do k6"
+              echo "Nenhum relatorio gerado. Verifique os logs de execucao."
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f summary.json ]; then
             cp summary.json results/summary.json
@@ -161,7 +163,7 @@ jobs:
 
       - name: Upload k6 Execution Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: k6-${{ inputs.environment }}-${{ inputs.test_type }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: results/

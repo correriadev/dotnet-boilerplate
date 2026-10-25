@@ -76,10 +76,10 @@ jobs:
 
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Setup Node.js Runtime
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
           cache: 'npm'
@@ -146,20 +146,22 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "## Relatorio Bruno API Test — \`${{ inputs.environment }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**Colecao:** \`${{ inputs.collection_path }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "**URL Alvo:** \`${{ steps.resolve_url.outputs.RESOLVED_BASE_URL }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          if [ -f tests/bruno/reports/junit.xml ]; then
-            echo "Relatorio JUnit gerado com sucesso em \`tests/bruno/reports/junit.xml\`." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f tests/bruno/reports/report.html ]; then
-            echo "Relatorio HTML disponivel para download nos artefatos da execucao." >> "$GITHUB_STEP_SUMMARY"
-          fi
+          {
+            echo "## Relatorio Bruno API Test — \`${{ inputs.environment }}\`"
+            echo "**Colecao:** \`${{ inputs.collection_path }}\`"
+            echo "**URL Alvo:** \`${{ steps.resolve_url.outputs.RESOLVED_BASE_URL }}\`"
+            echo ""
+            if [ -f tests/bruno/reports/junit.xml ]; then
+              echo "Relatorio JUnit gerado com sucesso em \`tests/bruno/reports/junit.xml\`."
+            fi
+            if [ -f tests/bruno/reports/report.html ]; then
+              echo "Relatorio HTML disponivel para download nos artefatos da execucao."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Bruno Test Reports
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: bruno-${{ inputs.environment }}-${{ inputs.collection_path }}-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: tests/bruno/reports/
