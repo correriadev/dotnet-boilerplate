@@ -124,3 +124,4 @@ if ($hasBreaking -and $FailClosed) {
 
 Write-Host "Contrato OpenAPI verificado com sucesso."
 exit 0
+
