@@ -63,6 +63,22 @@ jobs:
             Get-Content "openapi-diff-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
 
+      - name: Evaluate Dependency Vulnerabilities (SCA)
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-dependencies.ps1 -FailClosed
+          if (Test-Path "dependencies-summary.md") {
+            Get-Content "dependencies-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Evaluate Bicep IaC Security Policies
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-iac.ps1 -FailClosed
+          if (Test-Path "iac-summary.md") {
+            Get-Content "iac-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
       - name: Upload Test and Coverage Results
         if: always()
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
@@ -72,6 +88,8 @@ jobs:
             TestResults/
             coverage-summary.md
             openapi-diff-summary.md
+            dependencies-summary.md
+            iac-summary.md
           if-no-files-found: ignore
           retention-days: 14
 

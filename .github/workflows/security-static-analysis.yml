@@ -1,0 +1,116 @@
+name: security-static-analysis
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: sec-analysis-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gitleaks-secret-scan:
+    name: Secret Scanning (Gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Full Repository History
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks Secret Scanner
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_SUMMARY: true
+
+  dotnet-sca-audit:
+    name: Dependency Vulnerability Audit (SCA)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Execute SCA Quality Gate
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-dependencies.ps1 -FailClosed
+          if (Test-Path "dependencies-summary.md") {
+            Get-Content "dependencies-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Upload SCA Summary Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependencies-sca-report
+          path: dependencies-summary.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  bicep-iac-security-audit:
+    name: Infrastructure as Code Audit (Bicep)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Execute Bicep IaC Security Gate
+        shell: pwsh
+        run: |
+          ./scripts/ci/evaluate-iac.ps1 -FailClosed
+          if (Test-Path "iac-summary.md") {
+            Get-Content "iac-summary.md" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          }
+
+      - name: Upload IaC Summary Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-security-report
+          path: iac-summary.md
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sec-gate-summary:
+    name: AppSec & DevSecOps Consolidated Verdict
+    if: always()
+    needs: [gitleaks-secret-scan, dotnet-sca-audit, bicep-iac-security-audit]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Consolidate Security Gates
+        shell: bash
+        env:
+          GITLEAKS_RES: ${{ needs.gitleaks-secret-scan.result }}
+          SCA_RES: ${{ needs.dotnet-sca-audit.result }}
+          IAC_RES: ${{ needs.bicep-iac-security-audit.result }}
+        run: |
+          echo "## Veredicto Consolidado de Seguranca Estatica (DevSecOps)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Pilar de Seguranca | Ferramenta / Scanner | Politica | Status |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| :--- | :--- | :--- | :--- |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **Secret Scanning** | Gitleaks v2 | Zero Segredos Expostos | $GITLEAKS_RES |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **SCA / Dependencias** | dotnet list vulnerable | Sem CVEs Critical/High | $SCA_RES |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| **IaC Security** | Bicep Security Evaluator | TLS 1.2+, Sem 0.0.0.0/0 | $IAC_RES |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$GITLEAKS_RES" = "failure" ] || [ "$SCA_RES" = "failure" ] || [ "$IAC_RES" = "failure" ]; then
+            echo "::error::Um ou mais gates de seguranca estatica foram violados! Merge bloqueado."
+            exit 1
+          fi
+
+          echo "Todos os quality gates de seguranca estatica foram aprovados com sucesso." >> "$GITHUB_STEP_SUMMARY"

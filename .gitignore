@@ -102,6 +102,8 @@ reports/
 # Coverage test results
 coverage-summary.md
 openapi-diff-summary.md
+dependencies-summary.md
+iac-summary.md
 TestResults/
 
 # Stryker mutation test reports
